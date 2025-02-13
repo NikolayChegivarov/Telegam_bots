@@ -1,0 +1,6 @@
+your_user = ''
+your_host = ''
+your_password = ''
+your_database = ''
+your_port = ''
+TELEGRAM_TOKEN = ''

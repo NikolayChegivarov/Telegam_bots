@@ -1,0 +1,7 @@
+Telegram_mysql_bot/gitignore
+Telegram_mysql_bot/photos/
+Telegram_mysql_bot/.venv/
+Telegram_mysql_bot/.handler-saves/
+Telegram_mysql_bot/.idea/
+Telegram_mysql_bot/__pycache__/
+Telegram_mysql_bot/slavin_config.py
