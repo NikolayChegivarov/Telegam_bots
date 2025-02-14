@@ -19,4 +19,4 @@ pip install change_wait_timeout
 pip install SQLAlchemy 
 
 Запуск докера.
-docker run -p 8002:8002 -e HOST=host.docker.internal 771e1c66f26b
+docker run -p 8000:8000 -e HOST=host.docker.internal ID_IMAGES

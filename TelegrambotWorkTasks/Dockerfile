@@ -8,4 +8,4 @@ RUN pip install --upgrade pip && \
     apt-get install -y postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 CMD ["python", "Work_tasks.py"]
-EXPOSE 8002
+EXPOSE 8000
