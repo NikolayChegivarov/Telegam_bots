@@ -42,6 +42,12 @@ projects together.
 - **Commands**: `/start`
 - **Status**: Production-ready
 
+### Bot 4: Telegrambot_weather
+- **Description**: Shows the weather.
+- **Commands**: `/start`, `/tomorrow` 
+- **Features**: On request, it can show current weather and weather for tomorrow.
+- **Status**: Production-ready
+
 ## Requirements
 ------------
 
