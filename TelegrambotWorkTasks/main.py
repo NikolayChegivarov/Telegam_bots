@@ -277,6 +277,14 @@ def callback_query(call):
             cnx.commit()
             bot.send_message(chat_id,
                              f"Задача поставлена на {selected_date.strftime('%d.%m.%Y')}")
+
+            # Рассылаем исполнителям уведомление о задаче.
+            ids_performers = performers()
+            print(f"ids_performers : {ids_performers}")
+            for id_performer in ids_performers:
+                bot.send_message(id_performer,
+                                 f"Задача поставлена {id_task}")
+
             return entrance(call)
         if 'city' in argument:
             print("выводит задачи на указанную дату, город.")
@@ -484,6 +492,19 @@ def get_status(message):
     user_id = message.from_user.id
     # Сохраняем id_task в словарь состояний
     alter_status_views(user_id, id_task)
+
+
+# РАССЫЛКА ВОДИТЕЛЯМ.
+def performers():
+    request = """
+    SELECT id_user_telegram 
+    FROM users
+    WHERE user_status = 'Водитель'
+    """
+    cursor.execute(request, )
+    ids_performers = [row[0] for row in cursor.fetchall()]
+    # Возвращаем список ID исполнителей.
+    return ids_performers
 
 
 if __name__ == "__main__":
