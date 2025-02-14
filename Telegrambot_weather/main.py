@@ -7,7 +7,6 @@ import logging
 import asyncio
 import nest_asyncio
 
-# Важно: добавляем эту строку в начало кода
 nest_asyncio.apply()
 
 # Настройка логирования
@@ -61,7 +60,7 @@ async def weather(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     logger.info(f"Запрос погоды для города: {city}")
-    weather_data = get_weather(city)
+    weather_data = await get_weather(city)  # Добавили await
 
     if weather_data is None:
         await update.message.reply_text(
