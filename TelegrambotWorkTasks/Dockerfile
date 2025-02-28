@@ -1,11 +1,11 @@
 FROM python:3.9-slim
 LABEL authors="nikolai"
-WORKDIR /cash_registers
-COPY . /cash_registers
+WORKDIR /telegram_work_tasks
+COPY . /telegram_work_tasks
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
     apt-get update && \
     apt-get install -y postgresql-client && \
     rm -rf /var/lib/apt/lists/*
-CMD ["python", "Work_tasks.py"]
+CMD ["python", "main.py"]
 EXPOSE 8000
