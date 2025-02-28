@@ -7,7 +7,9 @@ load_dotenv()
 
 
 def connect_to_database(dbname=None):
-    """Функция устанавливает подключение к базе данных PostgreSQL."""
+    """Функция устанавливает подключение к базе данных указанной в аргументе."""
+    if dbname is None:
+        dbname = os.getenv("NAME_DB")
     try:
         connection = psycopg2.connect(
             host=os.getenv("HOST"),
@@ -21,16 +23,6 @@ def connect_to_database(dbname=None):
     except (Exception, psycopg2.Error) as error:
         print(f"Ошибка при подключении к PostgreSQL: {error}")
         return None
-
-
-def check_db_connection():
-    """Проверка соединения с PostgreSQL."""
-    connection = connect_to_database(dbname="postgres")  # Подключение к стандартной базе данных
-    if connection:
-        connection.close()
-        print("Соединение с PostgreSQL успешно проверено.")
-        return True
-    return False
 
 
 def check_and_create_db():
@@ -61,6 +53,63 @@ def check_and_create_db():
         connection.close()
 
 
+def initialize_database():
+    """Функция для инициализации базы данных, включая создание таблиц, если они отсутствуют."""
+    connection = connect_to_database()
+    if not connection:
+        return
+
+    tables_to_check = [
+        ("users", """
+            id_user_telegram BIGINT PRIMARY KEY,
+            first_name VARCHAR(30) NULL,
+            last_name VARCHAR(30) NULL,
+            organization VARCHAR(30) NULL,
+            city VARCHAR(30) NULL,
+            user_status VARCHAR(30) NULL
+        """),
+        ("tasks", """
+            id_task SERIAL PRIMARY KEY,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            author BIGINT NOT NULL,
+            task_text TEXT NOT NULL,
+            task_status VARCHAR(30) NOT NULL,
+            executor BIGINT NULL,
+            CONSTRAINT fk_tasks_author
+            FOREIGN KEY (author)
+            REFERENCES users(id_user_telegram) ON DELETE CASCADE,
+            CONSTRAINT fk_tasks_executor
+            FOREIGN KEY (executor)
+            REFERENCES users(id_user_telegram) ON DELETE SET NULL
+        """)
+    ]
+
+    try:
+        connection.autocommit = True
+        cursor = connection.cursor()
+
+        for table_name, table_schema in tables_to_check:
+            # Проверка наличия таблицы
+            cursor.execute(sql.SQL("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = %s)"), [table_name])
+            exists = cursor.fetchone()[0]
+
+            if not exists:
+                # Создание таблицы, если она отсутствует
+                cursor.execute(sql.SQL("CREATE TABLE {} ({})").format(
+                    sql.Identifier(table_name),
+                    sql.SQL(table_schema)
+                ))
+                print(f"Таблица {table_name} успешно создана.")
+            else:
+                print(f"Таблица {table_name} уже существует.")
+
+        cursor.close()
+    except Exception as e:
+        print(f"Ошибка при инициализации базы данных: {e}")
+    finally:
+        connection.close()
+
+
 if __name__ == "__main__":
-    if check_db_connection():
-        check_and_create_db()
+    check_and_create_db()
+    initialize_database()

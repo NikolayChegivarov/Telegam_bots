@@ -1,6 +1,6 @@
 # Формируем содержимое базы данных.
 import psycopg2
-from database_connection import connect_to_database
+# from database_connection import connect_to_database
 import psycopg2.sql
 
 
