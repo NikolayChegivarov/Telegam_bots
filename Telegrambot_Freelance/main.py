@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from database import connect_to_database, check_and_create_db, initialize_database
 from functions import get_user_ids, availability_organization, availability_first_name, availability_last_name, \
     format_tasks
-from interaction import access_check, request_organization, client
+from interaction import access_check, request_organization, client, admin_menu
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -26,6 +26,8 @@ if cnx:
 else:
     raise Exception("Не удалось установить соединение с базой данных")
 
+ADMIN = int(os.getenv("ADMIN"))
+
 
 @bot.message_handler(func=lambda message: True)
 def entrance(message):
@@ -41,6 +43,10 @@ def entrance(message):
                  "last_name": last_name
                  }
     print(f"\nИнформация о пользователе: \n{user_info}\n")
+
+    if user_id == ADMIN:
+        return admin_menu()
+
 
     # ПРОВЕРКА ДОСТУПА:
     # Получаем список id пользователей из бд.
@@ -59,7 +65,7 @@ def entrance(message):
                          'У вас нет доступа к чату. Придется немного подождать пока администратор вас не добавит.')
         # Сообщение админу с информацией.
         text = f"Пользователь хочет добавиться в рабочий чат: \n{user_info}"
-        bot.send_message(os.getenv("ADMIN"), text)
+        bot.send_message(ADMIN, text)
         # Сообщение админу с клавиатурой.
         access_check(user_id)
         return 'ok'
@@ -127,7 +133,7 @@ def callback_query(call):
         # Пользователю клавиатуру.
         request_organization(user_id)
         # Админу уведомление.
-        bot.send_message(os.getenv("ADMIN"), f"Пользователь {user_id} добавлен в бд.")
+        bot.send_message(ADMIN, f"Пользователь {user_id} добавлен в бд.")
         print(f"Пользователь {user_id} добавлен в базу данных.")
         # Посылаем запрос статуса.
     # Если администратор отказал пользователю.

@@ -20,7 +20,7 @@ class Keyboards:
         self.markup = InlineKeyboardMarkup(row_width=2)
         self.button_natural_person = InlineKeyboardButton('Физ лицо', callback_data='natural_person')  #
         self.button_organization = InlineKeyboardButton('Организация', callback_data='organization')  #
-        self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')
+        self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')  #
         self.button_task_filter = InlineKeyboardButton('Задать фильтр', callback_data='filter')
         self.button_basic_menu = InlineKeyboardButton('Основное меню', callback_data='basic_menu')
         # Кнопки менеджерам.
@@ -56,11 +56,11 @@ class Keyboards:
         self.markup.add(self.button_set_a_task, self.button_tasks_all)
         return self.markup
 
-    def driver_keyboard(self):
+    def admin_keyboard(self):
         """
-        Клавиатура для водителей.
+        Клавиатура для админа.
         """
-        self.markup.add(self.button_tasks_all, self.button_my_tasks, self.button_status)
+        self.markup.add(self.button_tasks_all)
         return self.markup
 
     def filter_tasks_keyboard(self):
