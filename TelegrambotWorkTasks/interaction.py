@@ -38,7 +38,7 @@ def access_check(user_id):
     """Проверка доступа. Принять/Отклонить пользователя."""
     keyboard = Keyboards().access_check()
     text = user_id
-    bot.send_message(chat_id=476822305, text=text, reply_markup=keyboard)
+    bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['kostroma', 'msk', 'filter', 'basic_menu'])

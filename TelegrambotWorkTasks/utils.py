@@ -38,5 +38,3 @@ def get_db_connection():
         return cnx, cursor
     else:
         raise ConnectionError("Failed to establish database connection")
-
-

@@ -19,8 +19,8 @@ from sqlalchemy import create_engine
 # logger.setLevel(logging.INFO)
 
 # Создание движка SQLAlchemy
-engine = create_engine(
-    f'postgresql://{os.environ["USER"]}:{os.environ["PASSWORD_DB"]}@{os.environ["HOST"]}/{os.environ["NAME_DB"]}')
+# engine = create_engine(
+#     f'postgresql://{os.environ["USER"]}:{os.environ["PASSWORD_DB"]}@{os.environ["HOST"]}/{os.environ["NAME_DB"]}')
 
 # Подключение к боту.
 bot = create_bot()

@@ -1,4 +1,4 @@
-from dotenv import load_dotenv, find_dotenv
+from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import sql
 import os
@@ -18,7 +18,6 @@ def connect_to_database(dbname=None):
             password=os.getenv("PASSWORD_DB"),
             port=os.getenv("PORT")
         )
-        # print(f"Подключение к PostgreSQL успешно установлено: {connection}")
         return connection
     except (Exception, psycopg2.Error) as error:
         print(f"Ошибка при подключении к PostgreSQL: {error}")
@@ -47,6 +46,7 @@ def check_and_create_db():
             print(f"База данных {os.getenv('NAME_DB')} уже существует.")
 
         cursor.close()
+        return True
     except Exception as e:
         print(f"Ошибка при проверке или создании базы данных: {e}")
     finally:
@@ -62,11 +62,12 @@ def initialize_database():
     tables_to_check = [
         ("users", """
             id_user_telegram BIGINT PRIMARY KEY,
+            organization VARCHAR(30) NULL,
             first_name VARCHAR(30) NULL,
             last_name VARCHAR(30) NULL,
-            organization VARCHAR(30) NULL,
-            city VARCHAR(30) NULL,
-            user_status VARCHAR(30) NULL
+            phone VARCHAR(20) NULL,
+            user_status VARCHAR(30) NULL,
+            my_comment VARCHAR(100) NULL
         """),
         ("tasks", """
             id_task SERIAL PRIMARY KEY,
@@ -74,13 +75,9 @@ def initialize_database():
             author BIGINT NOT NULL,
             task_text TEXT NOT NULL,
             task_status VARCHAR(30) NOT NULL,
-            executor BIGINT NULL,
             CONSTRAINT fk_tasks_author
             FOREIGN KEY (author)
-            REFERENCES users(id_user_telegram) ON DELETE CASCADE,
-            CONSTRAINT fk_tasks_executor
-            FOREIGN KEY (executor)
-            REFERENCES users(id_user_telegram) ON DELETE SET NULL
+            REFERENCES users(id_user_telegram) ON DELETE CASCADE
         """)
     ]
 
