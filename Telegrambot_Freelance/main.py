@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from database import connect_to_database, check_and_create_db, initialize_database
 from functions import get_user_ids, availability_organization, availability_first_name, availability_last_name, \
     format_tasks
-from interaction import access_check, request_organization, client, admin_menu
+from interaction import access_check, request_organization, client, admin_menu, alter_status
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -191,6 +191,34 @@ def callback_query(call):
         else:
             bot.send_message(chat_id, text='Задачи отсутствуют')
         return entrance(call)
+    elif call.data == "status":
+        print("указывает номер задачи для смены статуса.")
+        bot.send_message(chat_id,
+                         "Укажите номер задачи которую хотите изменить.")
+        return bot.register_next_step_handler_by_chat_id(chat_id, get_status)
+    elif call.data == "work_task" or call.data == "to_mark":
+        if call.data == "work_task":
+            status = 'В работе'
+        elif call.data == "to_mark":
+            status = 'Сделано'
+        id_task = int(call.message.text.split('№')[-1])
+        print(f"id_task ==== {id_task}")
+        # Параметры.
+        params = (status, id_task)
+        # Указываем тип клиента:
+        update_query = """
+            UPDATE tasks
+            SET task_status = %s
+            WHERE id_task = %s
+        """
+        # Выполнение запроса с параметрами
+        cursor.execute(update_query, params)
+        cnx.commit()
+        print(f"Статус задачи {id_task} изменен на {status}.\n")
+        admin_menu()
+        pass
+    elif call.data == "to_payment":
+        pass
 
 
 # <<<<<<<<<<<< ОБРАБОТЧИКИ "СЛЕДУЮЩЕГО ШАГА" >>>>>>>>>>>>>>>
@@ -304,6 +332,28 @@ def set_a_task(message):
     bot.send_message(user_id, f"Задача {id_task} успешно поставлена.")
 
     client(user_id)
+
+
+def get_status(message):
+    """Получили номер задачи для смены статуса."""
+    print("сработал get_status \nполучили id_task")
+    id_task = message.text
+    user_id = message.from_user.id
+    # Сохраняем id_task в словарь состояний
+    alter_status(user_id, id_task)
+
+
+    # Сохраняем id_task в словарь состояний
+    # params = (executor, status, id_task,)
+    # take_task = """
+    #         UPDATE tasks
+    #         SET executor = %s,
+    #             task_status = %s
+    #         WHERE id_task = %s
+    #     """
+    # cursor.execute(take_task, params)
+    # cnx.commit()
+    # print("Исполнитель установлен, статус задачи изменен.")
 
 
 # Запуск бота

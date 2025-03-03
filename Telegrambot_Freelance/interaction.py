@@ -39,8 +39,15 @@ def client(user_id):
     bot.send_message(user_id, text="Выберите действие:", reply_markup=keyboard)
 
 
-@bot.message_handler(commands=['button_tasks_all'])
+@bot.message_handler(commands=['tasks_all', 'status'])
 def admin_menu():
-    """Выяснение типа клиента."""
+    """Меню исполнителя."""
     keyboard = Keyboards().admin_keyboard()
-    bot.send_message(ADMIN, 'Привет админ', reply_markup=keyboard)
+    bot.send_message(ADMIN, 'Выберите действие', reply_markup=keyboard)
+
+
+@bot.message_handler(commands=['work_task', 'to_mark', 'to_payment'])
+def alter_status(user_id, id_task):
+    keyboard = Keyboards().alter_status()
+    text = f"Выберите статус для задачи №{id_task}"
+    bot.send_message(user_id, text, reply_markup=keyboard)

@@ -18,19 +18,23 @@ class Keyboards:
         Создает экземпляр InlineKeyboardMarkup и определяет различные кнопки выбора задач.
         """
         self.markup = InlineKeyboardMarkup(row_width=2)
+        # Общие кнопки
+        self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')  #
+        # Кнопки клиенту
         self.button_natural_person = InlineKeyboardButton('Физ лицо', callback_data='natural_person')  #
         self.button_organization = InlineKeyboardButton('Организация', callback_data='organization')  #
-        self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')  #
+        self.button_set_a_task = InlineKeyboardButton('Поставить задачу', callback_data='set_a_task')  #
+        # Кнопки исполнителю.
+        self.button_status = InlineKeyboardButton('Изменить статус', callback_data='status')  #
+        self.button_work_task = InlineKeyboardButton('В работе', callback_data='work_task')  #
+        self.button_to_mark = InlineKeyboardButton('Сделано', callback_data='to_mark')  #
+        self.button_to_payment = InlineKeyboardButton('На оплату', callback_data='to_payment')  #
+
         self.button_task_filter = InlineKeyboardButton('Задать фильтр', callback_data='filter')
         self.button_basic_menu = InlineKeyboardButton('Основное меню', callback_data='basic_menu')
-        # Кнопки менеджерам.
-        self.button_set_a_task = InlineKeyboardButton('Поставить задачу', callback_data='set_a_task')  #
         self.button_del = InlineKeyboardButton('Удалить задачу', callback_data='del')
-        # Кнопки водителям.
-        self.button_status = InlineKeyboardButton('Изменить статус', callback_data='status')
         self.button_take_task = InlineKeyboardButton('Взять задачу', callback_data='take_task')
-        self.button_to_mark = InlineKeyboardButton('Пометить "сделано"', callback_data='to_mark')
-        self.button_my_tasks = InlineKeyboardButton('Мои задачи', callback_data='my_tasks')
+
         # Кнопки администратору.
         self.button_accept = InlineKeyboardButton('Принять', callback_data='accept')
         self.button_reject = InlineKeyboardButton('Отклонить', callback_data='reject')
@@ -60,20 +64,19 @@ class Keyboards:
         """
         Клавиатура для админа.
         """
-        self.markup.add(self.button_tasks_all)
-        return self.markup
-
-    def filter_tasks_keyboard(self):
-        """
-        Выбор фильтра просмотра задач.
-        """
-        self.markup.add(self.button_task_kostroma, self.button_task_msk,
-                        self.button_task_filter, self.button_basic_menu)
+        self.markup.add(self.button_tasks_all, self.button_status)
         return self.markup
 
     def alter_status(self):
         """
-        Выбор фильтра просмотра задач.
+        Изменить статус задачи /'В работе'/'Сделано'.
         """
-        self.markup.add(self.button_take_task, self.button_to_mark)
+        self.markup.add(self.button_work_task, self.button_to_mark)
+        return self.markup
+
+    def to_payment(self):
+        """
+        Отправить на оплату. Статус 'На оплате'.
+        """
+        self.markup.add(self.button_to_payment)
         return self.markup
