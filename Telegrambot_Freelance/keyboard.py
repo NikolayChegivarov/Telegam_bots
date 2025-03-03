@@ -20,6 +20,7 @@ class Keyboards:
         self.markup = InlineKeyboardMarkup(row_width=2)
         # Общие кнопки
         self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')  #
+        self.button_del_task = InlineKeyboardButton('Удалить задачу', callback_data='del_task')
         # Кнопки клиенту
         self.button_natural_person = InlineKeyboardButton('Физ лицо', callback_data='natural_person')  #
         self.button_organization = InlineKeyboardButton('Организация', callback_data='organization')  #
@@ -29,11 +30,6 @@ class Keyboards:
         self.button_work_task = InlineKeyboardButton('В работе', callback_data='work_task')  #
         self.button_to_mark = InlineKeyboardButton('Сделано', callback_data='to_mark')  #
         self.button_to_payment = InlineKeyboardButton('На оплату', callback_data='to_payment')  #
-
-        self.button_task_filter = InlineKeyboardButton('Задать фильтр', callback_data='filter')
-        self.button_basic_menu = InlineKeyboardButton('Основное меню', callback_data='basic_menu')
-        self.button_del = InlineKeyboardButton('Удалить задачу', callback_data='del')
-        self.button_take_task = InlineKeyboardButton('Взять задачу', callback_data='take_task')
 
         # Кнопки администратору.
         self.button_accept = InlineKeyboardButton('Принять', callback_data='accept')
@@ -64,7 +60,7 @@ class Keyboards:
         """
         Клавиатура для админа.
         """
-        self.markup.add(self.button_tasks_all, self.button_status)
+        self.markup.add(self.button_tasks_all, self.button_status, self.button_del_task)
         return self.markup
 
     def alter_status(self):

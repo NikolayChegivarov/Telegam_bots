@@ -215,8 +215,14 @@ def callback_query(call):
         cursor.execute(update_query, params)
         cnx.commit()
         print(f"Статус задачи {id_task} изменен на {status}.\n")
+        # Возвращаем исполнителя в основное меню.
         admin_menu()
         pass
+    elif call.data == 'del_task':
+        print("хочет удалить задачу.")
+        bot.send_message(chat_id,
+                         "Укажите номер задачи которую хотите удалить.")
+        return bot.register_next_step_handler_by_chat_id(chat_id, del_task)
     elif call.data == "to_payment":
         pass
 
@@ -336,24 +342,28 @@ def set_a_task(message):
 
 def get_status(message):
     """Получили номер задачи для смены статуса."""
-    print("сработал get_status \nполучили id_task")
+    print("\nполучили id_task для изменения статуса.")
     id_task = message.text
     user_id = message.from_user.id
     # Сохраняем id_task в словарь состояний
     alter_status(user_id, id_task)
 
 
-    # Сохраняем id_task в словарь состояний
-    # params = (executor, status, id_task,)
-    # take_task = """
-    #         UPDATE tasks
-    #         SET executor = %s,
-    #             task_status = %s
-    #         WHERE id_task = %s
-    #     """
-    # cursor.execute(take_task, params)
-    # cnx.commit()
-    # print("Исполнитель установлен, статус задачи изменен.")
+def del_task(message):
+    print("\nполучили id_task для удаления")
+    id_task = message.text
+    user_id = message.from_user.id
+    params = id_task
+    delite_task = """
+        DELETE 
+        FROM tasks 
+        WHERE id_task = %s;
+    """
+    cursor.execute(delite_task, params)
+    cnx.commit()
+    bot.send_message(user_id, f"Задача {id_task} успешно удалена.")
+
+    admin_menu()
 
 
 # Запуск бота

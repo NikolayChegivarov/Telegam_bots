@@ -39,7 +39,7 @@ def client(user_id):
     bot.send_message(user_id, text="Выберите действие:", reply_markup=keyboard)
 
 
-@bot.message_handler(commands=['tasks_all', 'status'])
+@bot.message_handler(commands=['tasks_all', 'status', 'del_task'])
 def admin_menu():
     """Меню исполнителя."""
     keyboard = Keyboards().admin_keyboard()
