@@ -50,7 +50,30 @@ def availability_last_name(cursor, user_id):
     return last_name_result
 
 
-def format_tasks(tasks):
+def format_tasks_admin(tasks):
+    """Форматирует задачи в виде текста с переносами строк."""
+    result = ""
+    for task in tasks:
+        # Извлекаем данные из кортежа task
+        task_id = task[0]
+        created_at = task[1].strftime('%Y-%m-%d %H:%M:%S') if isinstance(task[1], datetime) else task[1]
+        organization = task[2] if task[2] else "Не указано"
+        first_name = task[3] if task[3] else "Не указано"
+        last_name = task[4] if task[4] else "Не указано"
+        task_text = task[5]
+        task_status = task[6]
+
+        # Формируем строку с информацией о задаче
+        result += f"Задача #{task_id}\n"
+        result += f"Дата: {created_at}\n"
+        result += f"Организация: {organization}\n"
+        result += f"Автор: {first_name} {last_name}\n"
+        result += f"Описание: {task_text}\n"
+        result += f"Статус: {task_status}\n\n"
+    return result
+
+
+def format_tasks_client(tasks):
     """Форматирует задачи в виде текста с переносами строк."""
     result = ""
     for task in tasks:

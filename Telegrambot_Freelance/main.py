@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from database import connect_to_database, check_and_create_db, initialize_database
 from functions import get_user_ids, availability_organization, availability_first_name, availability_last_name, \
-    format_tasks
+    format_tasks_admin, format_tasks_client
 from interaction import access_check, request_organization, client, admin_menu, alter_status
 
 # Загрузка переменных окружения
@@ -176,21 +176,42 @@ def callback_query(call):
         return bot.register_next_step_handler_by_chat_id(call.message.chat.id, set_a_task)
     elif call.data == "tasks":
         print("хочет посмотреть задачи.")
-        tasks_today = """
-            SELECT *
-            FROM tasks;
-        """
-        # Выполнение запроса с параметрами
-        cursor.execute(tasks_today, )
-        cnx.commit()
-        results = cursor.fetchall()
-        print(f"Результат: {results}")
-        if results:
-            text = format_tasks(results)
-            bot.send_message(chat_id, text=text, parse_mode='Markdown')
+        if chat_id == ADMIN:
+            tasks_today = """
+                SELECT ta.id_task, ta.created_at, us.organization, us.first_name, us.last_name, ta.task_text, ta.task_status 
+                FROM tasks ta
+                INNER JOIN  users us ON us.id_user_telegram = ta.author 
+                WHERE task_status != 'Сделано';
+            """
+            # Выполнение запроса с параметрами
+            cursor.execute(tasks_today, )
+            cnx.commit()
+            results = cursor.fetchall()
+            print(f"Результат: {results}")
+            if results:
+                text = format_tasks_admin(results)
+                bot.send_message(chat_id, text=text, parse_mode='Markdown')
+            else:
+                bot.send_message(chat_id, text='Задачи отсутствуют')
+            return entrance(call)
         else:
-            bot.send_message(chat_id, text='Задачи отсутствуют')
-        return entrance(call)
+            tasks_today = """
+                SELECT *
+                FROM tasks
+                WHERE task_status != 'Сделано';
+            """
+            # Выполнение запроса с параметрами
+            cursor.execute(tasks_today, )
+            cnx.commit()
+            results = cursor.fetchall()
+            print(f"Результат: {results}")
+            if results:
+                text = format_tasks_client(results)
+                bot.send_message(chat_id, text=text, parse_mode='Markdown')
+            else:
+                bot.send_message(chat_id, text='Задачи отсутствуют')
+            return entrance(call)
+
     elif call.data == "status":
         print("указывает номер задачи для смены статуса.")
         bot.send_message(chat_id,
@@ -202,7 +223,8 @@ def callback_query(call):
         elif call.data == "to_mark":
             status = 'Сделано'
         id_task = int(call.message.text.split('№')[-1])
-        print(f"id_task ==== {id_task}")
+        print(f"меняет статус задачи {id_task} на '{status}'.")
+
         # Параметры.
         params = (status, id_task)
         # Указываем тип клиента:
@@ -214,7 +236,29 @@ def callback_query(call):
         # Выполнение запроса с параметрами
         cursor.execute(update_query, params)
         cnx.commit()
-        print(f"Статус задачи {id_task} изменен на {status}.\n")
+        print(f"Статус задачи №{id_task} изменен на '{status}'.\n")
+
+        # Уведомляем исполнителя
+        bot.send_message(chat_id, f"Статус задачи №{id_task} - '{status}'")
+
+        # Уведомляем клиента о смене статуса.
+        query = """
+            SELECT author 
+            FROM tasks
+            WHERE id_task = %s;
+        """
+        cursor.execute(query, (id_task,))
+        result = cursor.fetchone()
+        if result:
+            author = result[0]  # Извлекаем значение из кортежа
+            print(f"author: {author}")
+            bot.send_message(author,
+                             f"Статус задачи №{id_task} - '{status}'")
+        else:
+            print("Запись не найдена")
+
+        cnx.commit()
+
         # Возвращаем исполнителя в основное меню.
         admin_menu()
         pass
@@ -315,7 +359,6 @@ def phone_we_get(message):
     cursor.execute(update_query, params)
     cnx.commit()
     print(f"Номер телефона {phone} в бд занесен.")
-
     return entrance(message)
 
 
@@ -336,7 +379,7 @@ def set_a_task(message):
     id_task = cursor.fetchone()[0]  # Получаем id_task из результата запроса
     cnx.commit()
     bot.send_message(user_id, f"Задача {id_task} успешно поставлена.")
-
+    bot.send_message(ADMIN, f"Вам поставлена задача {id_task}.")
     client(user_id)
 
 
@@ -362,7 +405,6 @@ def del_task(message):
     cursor.execute(delite_task, params)
     cnx.commit()
     bot.send_message(user_id, f"Задача {id_task} успешно удалена.")
-
     admin_menu()
 
 
