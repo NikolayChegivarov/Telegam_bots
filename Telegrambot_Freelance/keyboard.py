@@ -19,17 +19,17 @@ class Keyboards:
         """
         self.markup = InlineKeyboardMarkup(row_width=2)
         # Общие кнопки
-        self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')  #
+        self.button_tasks_all = InlineKeyboardButton('Просмотр задач', callback_data='tasks')
         self.button_del_task = InlineKeyboardButton('Удалить задачу', callback_data='del_task')
         # Кнопки клиенту
-        self.button_natural_person = InlineKeyboardButton('Физ лицо', callback_data='natural_person')  #
-        self.button_organization = InlineKeyboardButton('Организация', callback_data='organization')  #
-        self.button_set_a_task = InlineKeyboardButton('Поставить задачу', callback_data='set_a_task')  #
+        self.button_natural_person = InlineKeyboardButton('Физ лицо', callback_data='natural_person')
+        self.button_organization = InlineKeyboardButton('Организация', callback_data='organization')
+        self.button_set_a_task = InlineKeyboardButton('Поставить задачу', callback_data='set_a_task')
         # Кнопки исполнителю.
-        self.button_status = InlineKeyboardButton('Изменить статус', callback_data='status')  #
-        self.button_work_task = InlineKeyboardButton('В работе', callback_data='work_task')  #
-        self.button_to_mark = InlineKeyboardButton('Сделано', callback_data='to_mark')  #
-        self.button_to_payment = InlineKeyboardButton('На оплату', callback_data='to_payment')  #
+        self.button_status = InlineKeyboardButton('Изменить статус', callback_data='status')
+        self.button_work_task = InlineKeyboardButton('В работе', callback_data='work_task')
+        self.button_to_mark = InlineKeyboardButton('Сделано', callback_data='to_mark')
+        self.button_to_payment = InlineKeyboardButton('На оплату', callback_data='to_payment')
 
         # Кнопки администратору.
         self.button_accept = InlineKeyboardButton('Принять', callback_data='accept')

@@ -48,6 +48,13 @@ projects together.
 - **Features**: On request, it can show current weather and weather for tomorrow.
 - **Status**: Production-ready
 
+### Bot 5: Telegrambot_Freelance
+- **Description**: Telegram bot for the interaction of the Contractor and its customers.
+- **Commands**: `/start`...
+- **Features**: The bot allows customers to set tasks, track their status, and the administrator -   
+- to manage the tasks, Change their status and delete tasks..
+- **Status**: Production-ready
+
 ## Requirements
 ------------
 
