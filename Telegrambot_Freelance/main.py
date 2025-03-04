@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from database import connect_to_database, check_and_create_db, initialize_database
 from functions import get_user_ids, availability_organization, availability_first_name, availability_last_name, \
     format_tasks_admin, format_tasks_client
-from interaction import access_check, request_organization, client, admin_menu, alter_status
+from interaction import access_check, request_organization, client, admin_menu, alter_status, start_command
 
 # Загрузка переменных окружения
 load_dotenv()
@@ -260,7 +260,7 @@ def callback_query(call):
         cnx.commit()
 
         # Возвращаем исполнителя в основное меню.
-        admin_menu()
+        return admin_menu()
         pass
     elif call.data == 'del_task':
         print("хочет удалить задачу.")
@@ -268,10 +268,19 @@ def callback_query(call):
                          "Укажите номер задачи которую хотите удалить.")
         return bot.register_next_step_handler_by_chat_id(chat_id, del_task)
     elif call.data == "to_payment":
-        pass
+        # start_command(chat_id)
+        #
+        # # Обработка предварительного запроса оплаты
+        # @bot.pre_checkout_query_handler(func=lambda query: True)
+        # def pre_checkout_query(pre_checkout_query):
+        #     bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+        return admin_menu()
+
 
 
 # <<<<<<<<<<<< ОБРАБОТЧИКИ "СЛЕДУЮЩЕГО ШАГА" >>>>>>>>>>>>>>>
+
 
 
 # ЗНАКОМИМСЯ С ПОЛЬЗОВАТЕЛЕМ.

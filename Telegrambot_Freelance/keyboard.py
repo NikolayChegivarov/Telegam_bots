@@ -53,14 +53,14 @@ class Keyboards:
         """
         Клавиатура для клиентов.
         """
-        self.markup.add(self.button_set_a_task, self.button_tasks_all)
+        self.markup.add(self.button_set_a_task, self.button_tasks_all, self.button_del_task)
         return self.markup
 
     def admin_keyboard(self):
         """
         Клавиатура для админа.
         """
-        self.markup.add(self.button_tasks_all, self.button_status, self.button_del_task)
+        self.markup.add(self.button_tasks_all, self.button_status, self.button_del_task, self.button_to_payment)
         return self.markup
 
     def alter_status(self):
