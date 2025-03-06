@@ -73,34 +73,5 @@ def main():
         print("Не удалось установить соединение с базой данных.")
 
 
-# def execute_sql_query(cnx, cursor, query, params=None):
-#     """
-#     Выполняет SQL-запрос и возвращает результат.
-#
-#     Аргументы:
-#         cnx (connection): Соединение с базой данных
-#         cursor (cursor): Курсор для выполнения запросов
-#         query (str): Текст SQL-запроса
-#         params (tuple или dict, опционально): Параметры для подстановки в запрос
-#
-#     Возвращаемое значение:
-#         list или None: Результат выполнения запроса или None в случае ошибки
-#
-#     Примечание:
-#         Функция автоматически фиксирует изменения (commit) при успешном выполнении запроса
-#         и откатывает транзакцию (rollback) в случае возникновения исключения.
-#     """
-#     try:
-#         if params:
-#             cursor.execute(query, params)
-#         else:
-#             cursor.execute(query)
-#         cnx.commit()
-#         return cursor.fetchall()
-#     except Exception as e:
-#         cnx.rollback()
-#         return None
-
-
 if __name__ == "__main__":
     main()

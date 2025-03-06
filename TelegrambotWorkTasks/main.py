@@ -1,6 +1,4 @@
 from functions import get_user_ids, status_request, format_tasks
-# from database import execute_sql_query  # функция для выполнения SQL запросов.
-# from sqlalchemy import create_engine
 from utils import create_bot, get_db_connection
 from interaction import send_welcome, manager, driver, access_check, create_calendar, view_filter_task, \
     alter_status_views
@@ -21,9 +19,6 @@ ADMIN = int(os.getenv("ADMIN"))
 # logger = logging.getLogger('sqlalchemy.engine')
 # logger.setLevel(logging.INFO)
 
-# Создание движка SQLAlchemy
-# engine = create_engine(
-#     f'postgresql://{os.environ["USER"]}:{os.environ["PASSWORD_DB"]}@{os.environ["HOST"]}/{os.environ["NAME_DB"]}')
 
 # Подключение к боту.
 bot = create_bot()
