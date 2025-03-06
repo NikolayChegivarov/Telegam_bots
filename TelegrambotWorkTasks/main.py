@@ -1,16 +1,19 @@
 from functions import get_user_ids, status_request, format_tasks
+# from database import execute_sql_query  # функция для выполнения SQL запросов.
+# from sqlalchemy import create_engine
 from utils import create_bot, get_db_connection
 from interaction import send_welcome, manager, driver, access_check, create_calendar, view_filter_task, \
     alter_status_views
 from database import check_and_create_tables
 from datetime import datetime
 import ast  # Модуль для безопасного преобразования строки в словарь
-from database import execute_sql_query  # функция для выполнения SQL запросов.
-import pprint
 import re
-
 import os
-from sqlalchemy import create_engine
+from dotenv import load_dotenv
+import pprint
+
+ADMIN = int(os.getenv("ADMIN"))
+
 
 # Настройка уровня логирования
 # import logging
@@ -186,14 +189,28 @@ def callback_query(call):
         params = (date, )
         # Задачи на сегодня:
         tasks_today = """
-            SELECT *
-            FROM tasks
-            WHERE date = %s AND city = 'Кострома';
+            SELECT 
+                ts.id_task,
+                ts.created_at,
+                ts."date",
+                us.first_name AS author_first_name,
+                us.last_name AS author_last_name,
+                ts.city,
+                ts.address,
+                ts.task_text,
+                ts.task_status,
+                ex.first_name AS executor_first_name,
+                ex.last_name AS executor_last_name
+            FROM tasks ts
+            INNER JOIN users us ON ts.author = us.id_user_telegram
+            LEFT JOIN users ex ON ts.executor = ex.id_user_telegram
+            WHERE date = '2025-03-06' AND city = 'Кострома';
         """
         # Выполнение запроса с параметрами
         cursor.execute(tasks_today, params)
         cnx.commit()
         results = cursor.fetchall()
+        print(f"results {results}")
         if results:
             text = format_tasks(results)
             bot.send_message(chat_id, text=text, parse_mode='Markdown')
@@ -206,9 +223,22 @@ def callback_query(call):
         params = (date, )
         # Задачи на сегодня:
         tasks_today = """
-            SELECT *
-            FROM tasks
-            WHERE date = %s AND city = 'Москва';
+            SELECT 
+                ts.id_task,
+                ts.created_at,
+                ts."date",
+                us.first_name AS author_first_name,
+                us.last_name AS author_last_name,
+                ts.city,
+                ts.address,
+                ts.task_text,
+                ts.task_status,
+                ex.first_name AS executor_first_name,
+                ex.last_name AS executor_last_name
+            FROM tasks ts
+            INNER JOIN users us ON ts.author = us.id_user_telegram
+            LEFT JOIN users ex ON ts.executor = ex.id_user_telegram
+            WHERE date = '2025-03-06' AND city = 'Москва';
         """
         # Выполнение запроса с параметрами
         cursor.execute(tasks_today, params)
@@ -283,7 +313,7 @@ def callback_query(call):
             print(f"ids_performers : {ids_performers}")
             for id_performer in ids_performers:
                 bot.send_message(id_performer,
-                                 f"Задача поставлена {id_task}")
+                                 f"Поставлена задача №{id_task}")
 
             return entrance(call)
         if 'city' in argument:
@@ -292,9 +322,22 @@ def callback_query(call):
             params = (selected_date, city, )
             # Задачи:
             tasks_today = """
-                SELECT *
-                FROM tasks
-                WHERE date = %s AND city = %s;
+            SELECT 
+                ts.id_task,
+                ts.created_at,
+                ts."date",
+                us.first_name AS author_first_name,
+                us.last_name AS author_last_name,
+                ts.city,
+                ts.address,
+                ts.task_text,
+                ts.task_status,
+                ex.first_name AS executor_first_name,
+                ex.last_name AS executor_last_name
+            FROM tasks ts
+            INNER JOIN users us ON ts.author = us.id_user_telegram
+            LEFT JOIN users ex ON ts.executor = ex.id_user_telegram
+            WHERE date = %s and city = %s;
             """
             # Выполнение запроса с параметрами
             cursor.execute(tasks_today, params)
@@ -312,7 +355,7 @@ def callback_query(call):
                          "Укажите номер задачи которую хотите изменить.")
         return bot.register_next_step_handler_by_chat_id(chat_id, get_status)
     elif call.data == "take_task":
-        print("указывает исполнителя, меняем статус задачи.")
+        print("указывает исполнителя, меняет статус задачи на 'В РАБОТЕ'.")
         executor = chat_id
         status = "В РАБОТЕ"
         text = call.message.text
@@ -331,7 +374,7 @@ def callback_query(call):
         print("Исполнитель установлен, статус задачи изменен.")
         return entrance(call)
     elif call.data == "to_mark":
-        print("указывает исполнителя, меняем статус задачи.")
+        print("указывает исполнителя, меняет статус задачи на 'ГОТОВО'.")
         executor = chat_id
         status = "ГОТОВО"
         text = call.message.text
@@ -352,9 +395,10 @@ def callback_query(call):
     elif call.data == "my_tasks":
         params = (chat_id, )
         my_task = """
-                SELECT *
-                FROM tasks
-                WHERE executor = %s
+                SELECT ts.id_task, ts.created_at, ts."date", us.first_name, us.last_name, ts.city, ts.address, ts.task_text, ts.task_status, ts.executor 
+                FROM tasks ts
+                INNER JOIN users us ON ts.author = us.id_user_telegram 
+                WHERE executor = %s;
             """
         cursor.execute(my_task, params)
         cnx.commit()
