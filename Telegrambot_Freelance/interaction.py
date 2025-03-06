@@ -1,9 +1,10 @@
+# Взаимодействие.
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from telebot import TeleBot, types
 from keyboard import Keyboards
 import os
 from dotenv import load_dotenv
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-
+load_dotenv()
 
 # from datetime import datetime
 # import calendar

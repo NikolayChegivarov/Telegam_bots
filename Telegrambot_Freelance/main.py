@@ -1,12 +1,11 @@
 from telebot import TeleBot
-import os
-from dotenv import load_dotenv
 from database import connect_to_database, check_and_create_db, initialize_database
 from functions import get_user_ids, availability_organization, availability_first_name, availability_last_name, \
     format_tasks_admin, format_tasks_client
 from interaction import access_check, request_organization, client, admin_menu, alter_status, start_command
-
 # Загрузка переменных окружения
+import os
+from dotenv import load_dotenv
 load_dotenv()
 
 # Создание экземпляра бота

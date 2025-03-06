@@ -1,11 +1,14 @@
 # Взаимодействие.
-from keyboard import Keyboards
-from utils import create_bot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot import TeleBot, types
+from keyboard import Keyboards
 from datetime import datetime
 import calendar
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
-bot = create_bot()
+bot = TeleBot(os.getenv("TELEGRAM_TOKEN_BOT"))
 
 
 @bot.message_handler(commands=['knight', 'mouse'])

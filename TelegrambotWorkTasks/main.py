@@ -1,14 +1,15 @@
+from telebot import TeleBot
 from functions import get_user_ids, status_request, format_tasks
-from utils import create_bot, get_db_connection
 from interaction import send_welcome, manager, driver, access_check, create_calendar, view_filter_task, \
     alter_status_views
-from database import check_and_create_tables
+from database import check_and_create_db, initialize_database, connect_to_database
 from datetime import datetime
 import ast  # Модуль для безопасного преобразования строки в словарь
 import re
+
 import os
 from dotenv import load_dotenv
-import pprint
+load_dotenv()
 
 ADMIN = int(os.getenv("ADMIN"))
 
@@ -20,20 +21,24 @@ ADMIN = int(os.getenv("ADMIN"))
 # logger.setLevel(logging.INFO)
 
 
-# Подключение к боту.
-bot = create_bot()
+# Создание экземпляра бота
+bot = TeleBot(os.getenv("TELEGRAM_TOKEN_BOT"))
 
-# Подключение к бд.
-try:
-    # Получаем соединение с базой данных
-    cnx, cursor = get_db_connection()
-    # Проверяем и создаем таблицы если необходимо
-    check_and_create_tables(cursor)
-    cnx.commit()  # Применяем изменения
-except ConnectionError as e:
-    print(f"Ошибка при подключении к базе данных: {e}")
-    # logger.error(f"Ошибка при подключении к базе данных: {e}")
-    exit(1)
+# Проверка и создание базы данных, если она отсутствует
+check_and_create_db()
+
+# Инициализация базы данных (создание таблиц, если они отсутствуют)
+initialize_database()
+
+# Установление соединения с базой данных
+cnx = connect_to_database()
+if cnx:
+    cursor = cnx.cursor()
+    print("Подключение с бд успешно установлено.")
+else:
+    raise Exception("Не удалось установить соединение с базой данных")
+
+ADMIN = int(os.getenv("ADMIN"))
 
 
 @bot.message_handler(func=lambda message: True)
@@ -68,7 +73,7 @@ def entrance(message):
                          'У вас нет доступа к чату. Придется немного подождать пока администратор вас не добавит.')
         # Сообщение админу с информацией.
         text = f"Пользователь хочет добавиться в рабочий чат: \n{user_info}"
-        bot.send_message(476822305, text)
+        bot.send_message(ADMIN, text)
         # Сообщение админу с клавиатурой.
         access_check(user_id)
         return 'ok'
@@ -120,7 +125,7 @@ def callback_query(call):
         cnx.commit()
         # Пользователю клавиатуру, админу уведомление.
         send_welcome(user_id)
-        bot.send_message(476822305, f"Пользователь {user_id} добавлен в бд.")
+        bot.send_message(ADMIN, f"Пользователь {user_id} добавлен в бд.")
         print(f"Пользователь {user_id} добавлен в базу данных.")
         # Посылаем запрос статуса.
     # Если администратор отказал пользователю.
