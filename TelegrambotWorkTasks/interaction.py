@@ -10,6 +10,8 @@ load_dotenv()
 
 bot = TeleBot(os.getenv("TELEGRAM_TOKEN_BOT"))
 
+ADMIN = int(os.getenv("ADMIN"))
+
 
 @bot.message_handler(commands=['knight', 'mouse'])
 def send_welcome(user_id):
@@ -41,7 +43,7 @@ def access_check(user_id):
     """Проверка доступа. Принять/Отклонить пользователя."""
     keyboard = Keyboards().access_check()
     text = user_id
-    bot.send_message(chat_id=user_id, text=text, reply_markup=keyboard)
+    bot.send_message(ADMIN, text=text, reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['kostroma', 'msk', 'filter', 'basic_menu'])
