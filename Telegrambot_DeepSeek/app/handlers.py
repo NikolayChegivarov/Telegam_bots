@@ -10,6 +10,11 @@ router = Router()
 
 
 class Gen(StatesGroup):
+    """
+    Gen - имя группы состояний
+    StatesGroup - базовый класс из aiogram, который позволяет создавать группы состояний
+    wait = State() - определяет конкретное состояние внутри группы
+    """
     wait = State()
 
 
@@ -25,7 +30,7 @@ async def stop_flood(message: Message):
 
 @router.message()
 async def generating(message: Message, state: FSMContext):
-    await state.set_state(Gen.wait)
-    response = await ai_generate(message.text)
-    await message.answer(response)
-    await state.clear()
+    await state.set_state(Gen.wait)  # Установка состояния ожидания.
+    response = await ai_generate(message.text)  # Генерация ответа.
+    await message.answer(response)  # Отправка результата.
+    await state.clear()  # Очистка состояния.

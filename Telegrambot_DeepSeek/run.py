@@ -11,10 +11,16 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 
 async def main():
+    """
+    Бот начинает регулярно запрашивать у Telegram новые обновления
+    При получении новых сообщений или событий они передаются в Dispatcher для обработки
+    Dispatcher передает обновления в Router для предварительной маршрутизации
+    Router распределяет эти обновления между зарегистрированными обработчиками.
+    """
     bot = Bot(token=TELEGRAM_TOKEN)
     dp = Dispatcher()
     dp.include_router(router)
-    await dp.start_polling(bot, handler_signals=False)  # Слушает сервера телеграм, не пришло ли на адрес бота сообщение.
+    await dp.start_polling(bot, handler_signals=False)  # Слушает сервера телеграм.
 
 if __name__ == '__main__':
     try:
