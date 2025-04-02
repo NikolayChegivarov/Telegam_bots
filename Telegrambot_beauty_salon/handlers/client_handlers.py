@@ -45,7 +45,7 @@ async def show_client_profile(message: Message):
         conn.close()
 
 
-@router.message(F.text == (['🔙 Назад', '❌ Отмена']))
+@router.message(F.text == '🔙 Назад')
 async def request_phone(message: Message, state: FSMContext):
     await message.answer("ДОсновное меню", reply_markup=get_client_main_menu())
     await state.set_state(ClientStates.waiting_for_phone)
@@ -72,6 +72,10 @@ async def request_phone(message: Message, state: FSMContext):
 @router.message(ClientStates.waiting_for_name)
 async def update_name(message: Message, state: FSMContext):
     name = message.text
+    if name == "❌ Отмена":
+        await message.answer("Основное меню", reply_markup=get_client_main_menu())
+        await state.set_state(ClientStates.waiting_for_phone)
+        return
     conn = connect_to_database()
     try:
         with conn.cursor() as cursor:
@@ -89,6 +93,10 @@ async def update_name(message: Message, state: FSMContext):
 @router.message(ClientStates.waiting_for_last_name)
 async def update_last_name(message: Message, state: FSMContext):
     last_name = message.text
+    if last_name == "❌ Отмена":
+        await message.answer("Основное меню", reply_markup=get_client_main_menu())
+        await state.set_state(ClientStates.waiting_for_phone)
+        return
     conn = connect_to_database()
     try:
         with conn.cursor() as cursor:
@@ -106,7 +114,6 @@ async def update_last_name(message: Message, state: FSMContext):
 @router.message(ClientStates.waiting_for_phone)
 async def process_phone(message: Message, state: FSMContext):
     phone = message.text.strip()
-
     if phone == "❌ Отмена":
         await message.answer("Основное меню", reply_markup=get_client_main_menu())
         await state.set_state(ClientStates.waiting_for_phone)

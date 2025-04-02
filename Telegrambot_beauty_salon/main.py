@@ -46,9 +46,23 @@ async def on_startup():
     logger.info("Бот запущен")
 
 
+async def on_shutdown():
+    logger.info("Завершение работы бота...")
+    await bot.session.close()
+    logger.info("Бот успешно остановлен")
+
+
 async def main():
     await on_startup()
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        await on_shutdown()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Бот остановлен пользователем")
