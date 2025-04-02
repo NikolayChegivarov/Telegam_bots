@@ -1,15 +1,12 @@
 import logging
+import asyncio
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.fsm.state import State, StatesGroup
-from aiogram.fsm.context import FSMContext
-from aiogram.types import Message
 from aiogram.enums import ParseMode
 from dotenv import load_dotenv
 import os
 import database
-from utils import notify_master_about_appointment
-
 from middleware import AuthMiddleware
 
 # Настройка логирования
@@ -19,8 +16,11 @@ logger = logging.getLogger(__name__)
 # Загрузка переменных окружения
 load_dotenv()
 
-# Инициализация бота и диспетчера
-bot = Bot(token=os.getenv("TELEGRAM_TOKEN"), parse_mode=ParseMode.HTML)
+# Инициализация бота
+bot = Bot(
+    token=os.getenv("TELEGRAM_TOKEN_BOT"),
+    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
+)
 storage = MemoryStorage()
 dp = Dispatcher(bot=bot, storage=storage)
 dp.message.middleware(AuthMiddleware())
@@ -45,6 +45,10 @@ register_admin_handlers(dp)
 async def on_startup():
     logger.info("Бот запущен")
 
+
+async def main():
+    await on_startup()
+    await dp.start_polling(bot)
+
 if __name__ == '__main__':
-    from aiogram import executor
-    executor.start_polling(dp, skip_updates=True, on_startup=on_startup)
+    asyncio.run(main())
