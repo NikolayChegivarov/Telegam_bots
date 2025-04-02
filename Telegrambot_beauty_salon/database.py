@@ -82,8 +82,8 @@ def initialize_database():
 
         ("users", """
             id_user_telegram BIGINT PRIMARY KEY,
-            first_name VARCHAR(30) NOT NULL,
-            last_name VARCHAR(30) NOT NULL,
+            first_name VARCHAR(30) NULL,
+            last_name VARCHAR(30) NULL,
             phone VARCHAR(20),
             id_status INTEGER NOT NULL DEFAULT 1,
             id_user_type INTEGER NOT NULL DEFAULT 1,

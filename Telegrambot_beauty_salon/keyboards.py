@@ -2,11 +2,23 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMar
 
 
 def get_client_main_menu():
+    """Клавиатура клиента."""
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="📅 Записаться на услугу")],
             [KeyboardButton(text="💇 Мои записи"), KeyboardButton(text="💼 Мой профиль")],
             [KeyboardButton(text="📋 Услуги и цены")]
+        ],
+        resize_keyboard=True
+    )
+
+
+def edit_profile_menu():
+    """Меню профиля."""
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🔙 Назад"), KeyboardButton(text="✏️ Редактировать имя")],
+            [KeyboardButton(text="📱 Изменить телефон"), KeyboardButton(text="✏️ Редактировать фамилию")]
         ],
         resize_keyboard=True
     )

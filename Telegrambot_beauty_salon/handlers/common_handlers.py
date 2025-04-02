@@ -9,6 +9,20 @@ router = Router()
 
 @router.message(F.text == '/start')
 async def cmd_start(message: Message, state: FSMContext):
+    """
+    Обрабатывает команду /start и проверяет наличие пользователя в базе данных.
+
+    - Подключается к базе данных и ищет пользователя по Telegram ID.
+    - Если пользователь найден, проверяет его тип (Клиент, Мастер, Администратор) и
+      отправляет соответствующее приветственное сообщение с меню.
+    - Если пользователь не найден, автоматически регистрирует его как клиента
+      и отправляет приветственное сообщение с клиентским меню.
+    - Закрывает соединение с базой данных после выполнения запроса.
+
+    Args:
+        message (Message): Сообщение от пользователя.
+        state (FSMContext): Контекст состояния FSM.
+    """
     conn = connect_to_database()
     try:
         with conn.cursor() as cursor:
@@ -19,9 +33,10 @@ async def cmd_start(message: Message, state: FSMContext):
                 WHERE u.id_user_telegram = %s
             """, (message.from_user.id,))
             user = cursor.fetchone()
+            print(f"Пользователь - {user}")
 
             if user:
-                if user[0] == 1:  # Клиент
+                if user[0] == 1:    # Клиент
                     await message.answer("Добро пожаловать в наш салон красоты!", reply_markup=get_client_main_menu())
                 elif user[0] == 2:  # Мастер
                     await message.answer("Добро пожаловать в панель мастера!", reply_markup=get_master_main_menu())

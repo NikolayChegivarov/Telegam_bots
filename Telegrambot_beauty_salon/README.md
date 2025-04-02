@@ -76,22 +76,55 @@ PAYMENT_PROVIDER_TOKEN=ххх
 
 🏃‍♂️ Запуск
 
-1 Инициализируйте базу данных:
-
-
-
-
-
-Создайте базу данных, выполнив database.py
-
-Запустите бота:
+1 Запустите бота:
 ```bash
 python main.py
 ```
 
-Этот бот реализует основные функции для салона красоты:
-Регистрация клиентов и мастеров
-Просмотр услуг и запись на них
-Управление профилем
-Просмотр своих записей
-Администрирование услуг (для администраторов)
+🗄 Структура проекта
+beauty-salon-bot/
+├── .env.example
+├── README.md
+├── main.py
+├── database.py
+├── requirements.txt
+├── middleware.py
+├── keyboards.py
+├── handlers/
+│   ├── __init__.py
+│   ├── common_handlers.py
+│   ├── client_handlers.py
+│   ├── master_handlers.py
+│   └── admin_handlers.py
+└── utils.py
+
+🔧 Настройка PostgreSQL
+
+1 Установите PostgreSQL
+
+2 Создайте пользователя и базу данных:
+```sql
+CREATE USER beauty_salon_user WITH PASSWORD 'ваш_пароль';
+CREATE DATABASE beauty_salon OWNER beauty_salon_user;
+```
+
+3 Обновите настройки в .env:
+```ini
+TELEGRAM_TOKEN_BOT=ваш_токен_бота
+HOST=localhost
+NAME_DB=beauty_salon
+USER=postgres
+PASSWORD_DB=ваш_пароль
+PORT=5432
+NAME_DB=Telegrambot_beauty_salon
+ADMIN=ххх
+PAYMENT_PROVIDER_TOKEN=ххх
+```
+
+📜 Лицензия
+
+MIT License
+
+✉️ Контакты
+
+Ваше имя - your.email@example.com
