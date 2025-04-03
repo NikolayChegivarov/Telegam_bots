@@ -1,4 +1,5 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from datetime import date, timedelta
 
 
 def get_client_main_menu():
@@ -52,11 +53,11 @@ def get_services_kb(services):
     return kb
 
 
-def get_confirm_appointment_kb(appointment_id):
-    return InlineKeyboardMarkup().add(
-        InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{appointment_id}"),
-        InlineKeyboardButton(text="❌ Отменить", callback_data=f"cancel_{appointment_id}")
-    )
+# def get_confirm_appointment_kb(appointment_id):
+#     return InlineKeyboardMarkup().add(
+#         InlineKeyboardButton(text="✅ Подтвердить", callback_data=f"confirm_{appointment_id}"),
+#         InlineKeyboardButton(text="❌ Отменить", callback_data=f"cancel_{appointment_id}")
+#     )
 
 
 def get_admin_kb():
@@ -67,4 +68,53 @@ def get_admin_kb():
             [KeyboardButton(text="📊 Статистика")]
         ],
         resize_keyboard=True
+    )
+
+
+def get_masters_kb(masters):
+    """Клавиатура для выбора мастера"""
+    kb = InlineKeyboardMarkup()
+    for master in masters:
+        kb.add(InlineKeyboardButton(
+            text=f"{master[1]} {master[2]}",
+            callback_data=f"master_{master[0]}"
+        ))
+    return kb
+
+
+def get_dates_kb(dates):
+    """Клавиатура для выбора даты"""
+    kb = InlineKeyboardMarkup()
+    for d in dates:
+        kb.add(InlineKeyboardButton(
+            text=d,
+            callback_data=f"date_{d}"
+        ))
+    return kb
+
+
+def get_times_kb(times):
+    """Клавиатура для выбора времени"""
+    kb = InlineKeyboardMarkup()
+    for t in times:
+        kb.add(InlineKeyboardButton(
+            text=t,
+            callback_data=f"time_{t}"
+        ))
+    return kb
+
+
+def get_confirm_appointment_kb(service_id, master_id, appointment_date, appointment_time):
+    """Клавиатура подтверждения записи"""
+    date_str = appointment_date.strftime('%Y-%m-%d')
+    time_str = appointment_time.strftime('%H:%M')
+    return InlineKeyboardMarkup().add(
+        InlineKeyboardButton(
+            text="✅ Подтвердить",
+            callback_data=f"confirm_{service_id}_{master_id}_{date_str}_{time_str}"
+        ),
+        InlineKeyboardButton(
+            text="❌ Отменить",
+            callback_data="cancel_appointment"
+        )
     )
