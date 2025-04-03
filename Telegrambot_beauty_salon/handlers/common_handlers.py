@@ -57,11 +57,11 @@ async def cmd_start(message: Message, state: FSMContext):
 @router.message(F.text == '/help')
 async def cmd_help(message: Message):
     await message.answer("""
-Список доступных команд:
-/start - Начать работу с ботом
-/help - Получить справку
-/profile - Управление профилем
-""")
+    Список доступных команд:
+    /start - Начать работу с ботом
+    /help - Получить справку
+    /profile - Управление профилем
+    """)
 
 
 def register_common_handlers(dp):

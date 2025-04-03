@@ -7,10 +7,10 @@ from keyboards import get_client_main_menu, get_cancel_kb, get_services_kb, get_
 import re
 import logging
 
-# Инициализация логгера
+# Инициализация логгера.
 logger = logging.getLogger(__name__)
 
-# Инициализация роутера
+# Инициализация роутера.
 router = Router()
 
 
@@ -46,9 +46,9 @@ async def show_client_profile(message: Message):
 
 
 @router.message(F.text == '🔙 Назад')
-async def request_phone(message: Message, state: FSMContext):
-    await message.answer("ДОсновное меню", reply_markup=get_client_main_menu())
-    await state.set_state(ClientStates.waiting_for_phone)
+async def back(message: Message, state: FSMContext):
+    await state.clear()
+    await message.answer("ООООсновное меню", reply_markup=get_client_main_menu())
 
 
 @router.message(F.text == '✏️ Редактировать имя')
@@ -73,8 +73,8 @@ async def request_phone(message: Message, state: FSMContext):
 async def update_name(message: Message, state: FSMContext):
     name = message.text
     if name == "❌ Отмена":
+        await state.clear()
         await message.answer("Основное меню", reply_markup=get_client_main_menu())
-        await state.set_state(ClientStates.waiting_for_phone)
         return
     conn = connect_to_database()
     try:
@@ -94,8 +94,8 @@ async def update_name(message: Message, state: FSMContext):
 async def update_last_name(message: Message, state: FSMContext):
     last_name = message.text
     if last_name == "❌ Отмена":
+        await state.clear()
         await message.answer("Основное меню", reply_markup=get_client_main_menu())
-        await state.set_state(ClientStates.waiting_for_phone)
         return
     conn = connect_to_database()
     try:
@@ -112,11 +112,11 @@ async def update_last_name(message: Message, state: FSMContext):
 
 
 @router.message(ClientStates.waiting_for_phone)
-async def process_phone(message: Message, state: FSMContext):
+async def update_phone(message: Message, state: FSMContext):
     phone = message.text.strip()
     if phone == "❌ Отмена":
+        await state.clear()
         await message.answer("Основное меню", reply_markup=get_client_main_menu())
-        await state.set_state(ClientStates.waiting_for_phone)
         return
 
     # Удаляем все нецифровые символы, кроме возможного плюса в начале
