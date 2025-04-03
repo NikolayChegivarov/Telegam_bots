@@ -73,6 +73,7 @@ NAME_DB=Telegrambot_beauty_salon
 ADMIN=ххх
 PAYMENT_PROVIDER_TOKEN=ххх
 ```
+Что бы узнать свой telegram id обратитесь к "@my_id_bot"
 
 🏃‍♂️ Запуск
 

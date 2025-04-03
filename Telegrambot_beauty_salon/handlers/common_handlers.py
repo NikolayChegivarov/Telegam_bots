@@ -3,6 +3,8 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from database import connect_to_database
 from keyboards import get_client_main_menu, get_master_main_menu, get_admin_kb
+from dotenv import load_dotenv
+import os
 
 router = Router()
 
@@ -23,6 +25,7 @@ async def cmd_start(message: Message, state: FSMContext):
         message (Message): Сообщение от пользователя.
         state (FSMContext): Контекст состояния FSM.
     """
+
     conn = connect_to_database()
     try:
         with conn.cursor() as cursor:
@@ -34,6 +37,14 @@ async def cmd_start(message: Message, state: FSMContext):
             """, (message.from_user.id,))
             user = cursor.fetchone()
             print(f"Пользователь - {user}")
+            ADMINS = list(map(int, os.getenv("ADMIN", "").split(",")))
+            user_info = message.from_user  # Получаем объект пользователя
+
+            # Извлекаем нужную информацию
+            user_id = user_info.id
+            # first_name = user_info.first_name
+            # last_name = user_info.last_name
+            # username = user_info.username
 
             if user:
                 if user[0] == 1:    # Клиент
@@ -42,6 +53,13 @@ async def cmd_start(message: Message, state: FSMContext):
                     await message.answer("Добро пожаловать в панель мастера!", reply_markup=get_master_main_menu())
                 elif user[0] == 3:  # Админ
                     await message.answer("Панель администратора", reply_markup=get_admin_kb())
+            elif user_id in ADMINS:
+                cursor.execute(
+                    "INSERT INTO users (id_user_telegram, first_name, last_name, id_user_type) VALUES (%s, %s, %s, 3)",
+                    (message.from_user.id, message.from_user.first_name, message.from_user.last_name)
+                )
+                conn.commit()
+                await message.answer("Панель администратора", reply_markup=get_admin_kb())
             else:
                 cursor.execute(
                     "INSERT INTO users (id_user_telegram, first_name, last_name, id_user_type) VALUES (%s, %s, %s, 1)",

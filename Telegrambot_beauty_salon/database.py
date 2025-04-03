@@ -78,7 +78,7 @@ def initialize_database():
         ("type", """
             id_user_type SERIAL PRIMARY KEY,
             type_user VARCHAR(10) NOT NULL UNIQUE
-        """, "INSERT INTO type (type_user) VALUES ('CLIENT'), ('MASTER')"),
+        """, "INSERT INTO type (type_user) VALUES ('CLIENT'), ('MASTER'), ('ADMIN')"),
 
         ("users", """
             id_user_telegram BIGINT PRIMARY KEY,
