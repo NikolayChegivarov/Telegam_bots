@@ -9,6 +9,8 @@ import os
 import re
 import logging
 
+from utils import is_client
+
 router = Router()
 logger = logging.getLogger(__name__)
 
@@ -121,7 +123,10 @@ cancel_filter = F.text.in_(["❌ Отмена", "🔙 Назад"])
 @router.message(cancel_filter)
 async def handle_cancel(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer("Основное меню", reply_markup=get_client_main_menu())
+    if await is_client(message.from_user.id):
+        await message.answer("Основное меню", reply_markup=get_client_main_menu())
+    elif not await is_client(message.from_user.id):
+        await message.answer("Основное меню", reply_markup=get_master_main_menu())
 
 
 @router.message(F.text == '✏️ Редактировать имя')

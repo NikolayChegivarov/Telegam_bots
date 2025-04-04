@@ -14,6 +14,7 @@ async def get_user_role(user_id: int) -> Optional[str]:
                 WHERE u.id_user_telegram = %s
             """, (user_id,))
             result = cursor.fetchone()
+            print(f"Результат:   {result[0]}")
             return result[0] if result else None
     finally:
         conn.close()
@@ -23,6 +24,12 @@ async def is_admin(user_id: int) -> bool:
     """Проверить, является ли пользователь администратором"""
     role = await get_user_role(user_id)
     return role == 'ADMIN'
+
+
+async def is_client(user_id: int) -> bool:
+    """Проверить, является ли пользователь администратором"""
+    role = await get_user_role(user_id)
+    return role == 'CLIENT'
 
 
 async def format_service_info(service_data: Dict[str, Any]) -> str:
