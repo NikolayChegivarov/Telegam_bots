@@ -9,7 +9,6 @@ from keyboards import (
     get_cancel_kb,
     get_services_kb,
     get_confirm_appointment_kb,
-    edit_profile_menu,
     get_masters_kb,
     get_dates_kb,
     get_times_kb
@@ -24,9 +23,6 @@ router = Router()
 
 
 class ClientStates(StatesGroup):
-    waiting_for_name = State()
-    waiting_for_last_name = State()
-    waiting_for_phone = State()
     waiting_for_service = State()
     waiting_for_master = State()
     waiting_for_date = State()
@@ -34,16 +30,6 @@ class ClientStates(StatesGroup):
 
 
 # Вспомогательные функции
-def is_valid_phone(phone: str) -> bool:
-    """Проверка валидности номера телефона"""
-    cleaned_phone = re.sub(r'[^\d+]', '', phone)
-    if cleaned_phone.startswith('+'):
-        return len(cleaned_phone) == 12 and cleaned_phone[1:].isdigit() and cleaned_phone[1] == '7'
-    elif len(cleaned_phone) == 11:
-        return cleaned_phone[0] in ('7', '8') and cleaned_phone.isdigit()
-    return False
-
-
 async def validate_date(date_str: str) -> Optional[date]:
     """Проверка и преобразование даты"""
     try:
@@ -58,154 +44,6 @@ async def validate_time(time_str: str) -> Optional[time]:
         return datetime.strptime(time_str, '%H:%M').time()
     except ValueError:
         return None
-
-
-# Обработчики профиля
-@router.message(F.text == '💼 Мой профиль')
-async def show_client_profile(message: Message):
-    conn = connect_to_database()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT u.first_name, u.last_name, u.phone, s.status_user 
-                FROM users u
-                JOIN status s ON u.id_status = s.id_status
-                WHERE u.id_user_telegram = %s
-            """, (message.from_user.id,))
-            user = cursor.fetchone()
-
-            if user:
-                text = f"👤 Ваш профиль:\n\nИмя: {user[0]}\nФамилия: {user[1]}\nТелефон: {user[2] or 'не указан'}"
-                await message.answer(text, reply_markup=edit_profile_menu())
-            else:
-                await message.answer("Профиль не найден.")
-    finally:
-        conn.close()
-
-
-cancel_filter = F.text.in_(["❌ Отмена", "🔙 Назад"])
-
-
-@router.message(cancel_filter)
-async def handle_cancel(message: Message, state: FSMContext):
-    await state.clear()
-    await message.answer("ООООсновное меню", reply_markup=get_client_main_menu())
-
-
-@router.message(F.text == '✏️ Редактировать имя')
-async def request_phone(message: Message, state: FSMContext):
-    await message.answer("Пожалуйста введите ваше имя:", reply_markup=get_cancel_kb())
-    await state.set_state(ClientStates.waiting_for_name)
-
-
-@router.message(F.text == '✏️ Редактировать фамилию')
-async def request_phone(message: Message, state: FSMContext):
-    await message.answer("Пожалуйста введите вашу фамилию:", reply_markup=get_cancel_kb())
-    await state.set_state(ClientStates.waiting_for_last_name)
-
-
-@router.message(F.text == '📱 Изменить телефон')
-async def request_phone(message: Message, state: FSMContext):
-    await message.answer("Пожалуйста, введите ваш телефонный номер:", reply_markup=get_cancel_kb())
-    await state.set_state(ClientStates.waiting_for_phone)
-
-
-@router.message(ClientStates.waiting_for_name)
-async def update_name(message: Message, state: FSMContext):
-    name = message.text
-    conn = connect_to_database()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "UPDATE users SET first_name = %s WHERE id_user_telegram = %s",
-                (name, message.from_user.id)
-            )
-            conn.commit()
-            await message.answer("Вы успешно изменили имя в профиле!", reply_markup=get_client_main_menu())
-    finally:
-        conn.close()
-    await state.clear()
-
-
-@router.message(ClientStates.waiting_for_last_name)
-async def update_last_name(message: Message, state: FSMContext):
-    last_name = message.text
-    conn = connect_to_database()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "UPDATE users SET last_name = %s WHERE id_user_telegram = %s",
-                (last_name, message.from_user.id)
-            )
-            conn.commit()
-            await message.answer("Вы успешно изменили фамилию в профиле!", reply_markup=get_client_main_menu())
-    finally:
-        conn.close()
-    await state.clear()
-
-
-@router.message(ClientStates.waiting_for_phone)
-async def update_phone(message: Message, state: FSMContext):
-    phone = message.text.strip()
-
-    # Удаляем все нецифровые символы, кроме возможного плюса в начале
-    cleaned_phone = re.sub(r'[^\d+]', '', phone)
-
-    # Проверяем номер по более строгим критериям
-    if not is_valid_phone(cleaned_phone):
-        await message.answer(
-            "Пожалуйста, введите корректный номер телефона в международном формате.\n"
-            "Пример: +79161234567 или 89161234567"
-        )
-        return
-
-    conn = connect_to_database()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                "UPDATE users SET phone = %s WHERE id_user_telegram = %s",
-                (cleaned_phone, message.from_user.id)
-            )
-            conn.commit()
-            await message.answer("Номер телефона успешно сохранён!", reply_markup=get_client_main_menu())
-    except Exception as e:
-        await message.answer("Произошла ошибка при сохранении номера. Пожалуйста, попробуйте позже.")
-        logger.error(f"Error saving phone number: {e}")
-    finally:
-        conn.close()
-    await state.clear()
-
-
-def is_valid_phone(phone: str) -> bool:
-    """
-    Строгая проверка российских номеров телефона.
-    Допустимые форматы:
-    - +79161234567 (обязательно 11 цифр после +7)
-    - 89161234567 (обязательно 11 цифр, начинается с 8 или 7)
-    - 79161234567 (обязательно 11 цифр)
-
-    Номера без кода страны (9161234567) **НЕ** принимаются!
-    """
-    # Удаляем всё, кроме цифр и плюса
-    cleaned_phone = re.sub(r'[^\d+]', '', phone)
-
-    # 1. Проверка международного формата (+7...)
-    if cleaned_phone.startswith('+'):
-        return (
-                len(cleaned_phone) == 12  # +7 + 10 цифр
-                and cleaned_phone[1:].isdigit()  # после + только цифры
-                and cleaned_phone[1] == '7'  # код России
-        )
-
-    # 2. Проверка российского формата (8... или 7...)
-    elif len(cleaned_phone) == 11:
-        return (
-                cleaned_phone[0] in ('7', '8')  # начинается с 7 или 8
-                and cleaned_phone.isdigit()  # только цифры
-        )
-
-    # 3. Все остальные случаи (10 цифр, 9 цифр, буквы и т.д.) — невалидны
-    return False
 
 
 # Обработчики записи на услугу
@@ -270,63 +108,6 @@ async def master_selected(callback: CallbackQuery, state: FSMContext):
 
     await callback.message.answer("Выберите дату:", reply_markup=get_dates_kb(dates))
     await state.set_state(ClientStates.waiting_for_date)
-    await callback.answer()
-
-
-@router.callback_query(ClientStates.waiting_for_date, F.data.startswith('date_'))
-async def date_selected(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора даты"""
-    date_str = callback.data.split('_')[1]
-    selected_date = datetime.strptime(date_str, '%d.%m.%Y').date()
-    await state.update_data(appointment_date=selected_date)
-
-    # Генерируем доступное время (с 10:00 до 20:00 с интервалом в 1 час)
-    times = [f"{hour}:00" for hour in range(10, 20)]
-
-    await callback.message.answer("Выберите время:", reply_markup=get_times_kb(times))
-    await state.set_state(ClientStates.waiting_for_time)
-    await callback.answer()
-
-
-@router.callback_query(ClientStates.waiting_for_time, F.data.startswith('time_'))
-async def time_selected(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора времени и подтверждение записи"""
-    time_str = callback.data.split('_')[1]
-    selected_time = datetime.strptime(time_str, '%H:%M').time()
-
-    data = await state.get_data()
-
-    # Формируем информацию для подтверждения
-    conn = connect_to_database()
-    try:
-        with conn.cursor() as cursor:
-            # Получаем информацию об услуге
-            cursor.execute("SELECT name FROM services WHERE id_services = %s", (data['service_id'],))
-            service_name = cursor.fetchone()[0]
-
-            # Получаем информацию о мастере
-            cursor.execute("SELECT first_name, last_name FROM users WHERE id_user_telegram = %s", (data['master_id'],))
-            master_first_name, master_last_name = cursor.fetchone()
-
-            confirmation_text = (
-                f"Подтвердите запись:\n\n"
-                f"🔹 Услуга: {service_name}\n"
-                f"👨‍🔧 Мастер: {master_first_name} {master_last_name}\n"
-                f"📅 Дата: {data['appointment_date'].strftime('%d.%m.%Y')}\n"
-                f"⏰ Время: {selected_time.strftime('%H:%M')}"
-            )
-
-            await callback.message.answer(
-                confirmation_text,
-                reply_markup=get_confirm_appointment_kb(
-                    service_id=data['service_id'],
-                    master_id=data['master_id'],
-                    appointment_date=data['appointment_date'],
-                    appointment_time=selected_time
-                )
-            )
-    finally:
-        conn.close()
     await callback.answer()
 
 
