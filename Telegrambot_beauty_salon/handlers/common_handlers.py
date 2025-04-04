@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from database import connect_to_database
 from keyboards import get_client_main_menu, get_master_main_menu, get_admin_kb
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import os
 
 router = Router()

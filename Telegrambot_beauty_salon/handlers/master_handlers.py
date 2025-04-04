@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from database import connect_to_database
-from keyboards import get_master_main_menu, get_cancel_kb
+# from keyboards import get_master_main_menu, get_cancel_kb
 
 router = Router()
 

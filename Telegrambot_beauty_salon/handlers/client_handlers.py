@@ -273,11 +273,68 @@ async def master_selected(callback: CallbackQuery, state: FSMContext):
     today = datetime.now().date()
     dates = [
         (today + timedelta(days=i)).strftime('%d.%m.%Y')
-        for i in range(1, 15)  # Следующие 14 дней
+        for i in range(1, 15)
     ]
 
     await callback.message.answer("Выберите дату:", reply_markup=get_dates_kb(dates))
     await state.set_state(ClientStates.waiting_for_date)
+    await callback.answer()
+
+
+@router.callback_query(ClientStates.waiting_for_date, F.data.startswith('date_'))
+async def date_selected(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора даты"""
+    date_str = callback.data.split('_')[1]
+    selected_date = datetime.strptime(date_str, '%d.%m.%Y').date()
+    await state.update_data(appointment_date=selected_date)
+
+    # Генерируем доступное время (с 10:00 до 20:00 с интервалом в 1 час)
+    times = [f"{hour}:00" for hour in range(10, 20)]
+
+    await callback.message.answer("Выберите время:", reply_markup=get_times_kb(times))
+    await state.set_state(ClientStates.waiting_for_time)
+    await callback.answer()
+
+
+@router.callback_query(ClientStates.waiting_for_time, F.data.startswith('time_'))
+async def time_selected(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора времени и подтверждение записи"""
+    time_str = callback.data.split('_')[1]
+    selected_time = datetime.strptime(time_str, '%H:%M').time()
+
+    data = await state.get_data()
+
+    # Формируем информацию для подтверждения
+    conn = connect_to_database()
+    try:
+        with conn.cursor() as cursor:
+            # Получаем информацию об услуге
+            cursor.execute("SELECT name FROM services WHERE id_services = %s", (data['service_id'],))
+            service_name = cursor.fetchone()[0]
+
+            # Получаем информацию о мастере
+            cursor.execute("SELECT first_name, last_name FROM users WHERE id_user_telegram = %s", (data['master_id'],))
+            master_first_name, master_last_name = cursor.fetchone()
+
+            confirmation_text = (
+                f"Подтвердите запись:\n\n"
+                f"🔹 Услуга: {service_name}\n"
+                f"👨‍🔧 Мастер: {master_first_name} {master_last_name}\n"
+                f"📅 Дата: {data['appointment_date'].strftime('%d.%m.%Y')}\n"
+                f"⏰ Время: {selected_time.strftime('%H:%M')}"
+            )
+
+            await callback.message.answer(
+                confirmation_text,
+                reply_markup=get_confirm_appointment_kb(
+                    service_id=data['service_id'],
+                    master_id=data['master_id'],
+                    appointment_date=data['appointment_date'],
+                    appointment_time=selected_time
+                )
+            )
+    finally:
+        conn.close()
     await callback.answer()
 
 
@@ -414,25 +471,39 @@ async def show_services(message: Message):
 
 @router.callback_query(F.data.startswith('service_'))
 async def service_selected(callback: CallbackQuery, state: FSMContext):
-    """Эта функция обрабатывает выбор услуги пользователем через callback."""
-    service_id = callback.data.split('_')[1]
+    """Обработка выбора услуги"""
+    service_id = int(callback.data.split('_')[1])
+    await state.update_data(service_id=service_id)
+
     conn = connect_to_database()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM services WHERE id_services = %s", (service_id,))
+            # Получаем информацию об услуге
+            cursor.execute("SELECT name, price, duration FROM services WHERE id_services = %s", (service_id,))
             service = cursor.fetchone()
 
             if service:
-                service_info = (
-                    f"<b>{service[1]}</b>\n"
-                    f"💰 Цена: {service[2]} руб.\n"
-                    f"⏱ Длительность: {service[3]} мин.\n\n"
-                    f"Хотите записаться на эту услугу?"
-                )
-                await callback.message.answer(
-                    service_info,
-                    reply_markup=get_confirm_appointment_kb(service_id)
-                )
+                # Получаем список доступных мастеров для этой услуги
+                cursor.execute("""
+                    SELECT id_user_telegram, first_name, last_name 
+                    FROM users 
+                    WHERE id_user_type = 2 AND id_status = 1
+                """)
+                masters = cursor.fetchall()
+
+                if masters:
+                    await callback.message.answer(
+                        f"Вы выбрали услугу: <b>{service[0]}</b>\n"
+                        f"💰 Цена: {service[1]} руб.\n"
+                        f"⏱ Длительность: {service[2]} мин.\n\n"
+                        "Теперь выберите мастера:",
+                        reply_markup=get_masters_kb(masters)
+                    )
+                    await state.set_state(ClientStates.waiting_for_master)
+                else:
+                    await callback.message.answer("Нет доступных мастеров для этой услуги.")
+            else:
+                await callback.message.answer("Услуга не найдена.")
     finally:
         conn.close()
     await callback.answer()

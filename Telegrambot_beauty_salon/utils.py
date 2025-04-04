@@ -1,4 +1,4 @@
-from aiogram.types import User
+# from aiogram.types import User
 from database import connect_to_database
 from typing import Optional, Dict, Any
 
