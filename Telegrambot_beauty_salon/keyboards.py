@@ -20,14 +20,15 @@ def get_services_kb(services):
 
 def get_masters_kb(masters):
     """Клавиатура для выбора мастера"""
-    buttons = [
-        [InlineKeyboardButton(
-            text=f"{master[1]} {master[2]}",
-            callback_data=f"master_{master[0]}"
-        )]
-        for master in masters
-    ]
-    return InlineKeyboardMarkup(inline_keyboard=buttons)
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(
+                text=f"{master[1]} {master[2]}",
+                callback_data=f"master_{master[0]}"
+            )]
+            for master in masters
+        ]
+    )
 
 
 def get_dates_kb(dates):
@@ -56,7 +57,7 @@ def get_times_kb(times):
 
 def get_confirm_appointment_kb(service_id, master_id, appointment_date, appointment_time):
     """Клавиатура подтверждения записи"""
-    date_str = appointment_date.strftime('%Y-%m-%d')
+    date_str = appointment_date.strftime('%Y-%m-%d')  # Сохраняем в формате, удобном для БД
     time_str = appointment_time.strftime('%H:%M')
     return InlineKeyboardMarkup(
         inline_keyboard=[

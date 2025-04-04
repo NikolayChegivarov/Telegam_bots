@@ -93,135 +93,156 @@ async def service_selected(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@router.callback_query(ClientStates.waiting_for_master, F.data.startswith('master_'))
+@router.callback_query(F.data.startswith('master_'))
 async def master_selected(callback: CallbackQuery, state: FSMContext):
     """Обработка выбора мастера"""
-    master_id = int(callback.data.split('_')[1])
-    await state.update_data(master_id=master_id)
+    try:
+        master_id = int(callback.data.split('_')[1])
+        await state.update_data(master_id=master_id)
 
-    # Генерируем доступные даты (сегодня + 14 дней)
-    today = datetime.now().date()
-    dates = [
-        (today + timedelta(days=i)).strftime('%d.%m.%Y')
-        for i in range(1, 15)
-    ]
+        # Генерируем доступные даты (завтра + 13 дней)
+        today = datetime.now().date()
+        dates = [
+            (today + timedelta(days=i)).strftime('%d.%m.%Y')
+            for i in range(1, 14)
+        ]
 
-    await callback.message.answer("Выберите дату:", reply_markup=get_dates_kb(dates))
-    await state.set_state(ClientStates.waiting_for_date)
-    await callback.answer()
+        await callback.message.edit_text(
+            "Выберите дату:",
+            reply_markup=get_dates_kb(dates)
+        )
+        await state.set_state(ClientStates.waiting_for_date)
+    except Exception as e:
+        logger.error(f"Ошибка выбора мастера: {e}")
+        await callback.message.answer("Произошла ошибка, попробуйте снова")
+    finally:
+        await callback.answer()
 
 
-@router.callback_query(ClientStates.waiting_for_date, F.data.startswith('date_'))
+@router.callback_query(F.data.startswith('date_'))
 async def date_selected(callback: CallbackQuery, state: FSMContext):
     """Обработка выбора даты"""
-    date_str = callback.data.split('_')[1]
-    selected_date = await validate_date(date_str)
-
-    if not selected_date:
-        await callback.message.answer("Неверный формат даты. Попробуйте еще раз.")
-        return
-
-    await state.update_data(date=selected_date)
-
-    # Генерируем доступное время (с 10:00 до 20:00 с интервалом в 1 час)
-    times = [f"{hour}:00" for hour in range(10, 20)]
-
-    await callback.message.answer("Выберите время:", reply_markup=get_times_kb(times))
-    await state.set_state(ClientStates.waiting_for_time)
-    await callback.answer()
-
-
-@router.callback_query(ClientStates.waiting_for_time, F.data.startswith('time_'))
-async def time_selected(callback: CallbackQuery, state: FSMContext):
-    """Обработка выбора времени и подтверждение записи"""
-    time_str = callback.data.split('_')[1]
-    selected_time = await validate_time(time_str)
-
-    if not selected_time:
-        await callback.message.answer("Неверный формат времени. Попробуйте еще раз.")
-        return
-
-    data = await state.get_data()
-    service_id = data['service_id']
-    master_id = data['master_id']
-    selected_date = data['date']
-
-    conn = connect_to_database()
     try:
-        with conn.cursor() as cursor:
-            # Проверяем доступность времени
-            cursor.execute("""
-                SELECT 1 FROM record 
-                WHERE id_master = %s AND date = %s AND time = %s
-            """, (master_id, selected_date, selected_time))
+        date_str = callback.data.split('_')[1]
+        selected_date = datetime.strptime(date_str, '%d.%m.%Y').date()
+        await state.update_data(date=selected_date)
 
-            if cursor.fetchone():
-                await callback.message.answer("Это время уже занято. Пожалуйста, выберите другое.")
-                return
+        # Генерируем доступное время
+        times = [f"{hour}:00" for hour in range(10, 19)]  # с 10:00 до 18:00
 
-            # Получаем информацию об услуге
-            cursor.execute("SELECT name, price FROM services WHERE id_services = %s", (service_id,))
-            service = cursor.fetchone()
+        await callback.message.edit_text(
+            "Выберите время:",
+            reply_markup=get_times_kb(times)
+        )
+        await state.set_state(ClientStates.waiting_for_time)
+    except Exception as e:
+        logger.error(f"Ошибка выбора даты: {e}")
+        await callback.message.answer("Произошла ошибка, попробуйте снова")
+    finally:
+        await callback.answer()
 
-            # Получаем информацию о мастере
-            cursor.execute("SELECT first_name, last_name FROM users WHERE id_user_telegram = %s", (master_id,))
-            master = cursor.fetchone()
 
-            if service and master:
+@router.callback_query(F.data.startswith('time_'))
+async def time_selected(callback: CallbackQuery, state: FSMContext):
+    """Обработка выбора времени"""
+    try:
+        time_str = callback.data.split('_')[1]
+        selected_time = datetime.strptime(time_str, '%H:%M').time()
+        data = await state.get_data()
+
+        # Проверяем доступность времени
+        conn = connect_to_database()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 1 FROM record 
+                    WHERE id_master = %s AND date = %s AND time = %s
+                """, (data['master_id'], data['date'], selected_time))
+
+                if cursor.fetchone():
+                    await callback.message.answer("Это время уже занято, выберите другое")
+                    return
+
+                # Получаем данные для подтверждения
+                cursor.execute("""
+                    SELECT s.name, s.price, u.first_name, u.last_name
+                    FROM services s, users u
+                    WHERE s.id_services = %s AND u.id_user_telegram = %s
+                """, (data['service_id'], data['master_id']))
+                service_name, price, master_first, master_last = cursor.fetchone()
+
                 confirmation_text = (
                     f"Подтвердите запись:\n\n"
-                    f"🔹 Услуга: {service[0]}\n"
-                    f"💵 Цена: {service[1]} руб.\n"
-                    f"👨‍🔧 Мастер: {master[0]} {master[1]}\n"
-                    f"📅 Дата: {selected_date.strftime('%d.%m.%Y')}\n"
-                    f"⏰ Время: {selected_time.strftime('%H:%M')}"
+                    f"🔹 Услуга: {service_name}\n"
+                    f"💰 Цена: {price} руб.\n"
+                    f"👨‍🔧 Мастер: {master_first} {master_last}\n"
+                    f"📅 Дата: {data['date'].strftime('%d.%m.%Y')}\n"
+                    f"⏰ Время: {time_str}"
                 )
 
-                await callback.message.answer(
+                await callback.message.edit_text(
                     confirmation_text,
-                    reply_markup=get_confirm_appointment_kb(service_id, master_id, selected_date, selected_time)
+                    reply_markup=get_confirm_appointment_kb(
+                        data['service_id'],
+                        data['master_id'],
+                        data['date'],
+                        selected_time
+                    )
                 )
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f"Ошибка выбора времени: {e}")
+        await callback.message.answer("Произошла ошибка, попробуйте снова")
     finally:
-        conn.close()
-    await callback.answer()
+        await callback.answer()
 
 
 @router.callback_query(F.data.startswith('confirm_'))
 async def confirm_appointment(callback: CallbackQuery, state: FSMContext):
     """Подтверждение записи"""
-    _, service_id, master_id, date_str, time_str = callback.data.split('_')
-    selected_date = await validate_date(date_str)
-    selected_time = await validate_time(time_str)
-
-    if not selected_date or not selected_time:
-        await callback.message.answer("Ошибка данных. Пожалуйста, начните заново.")
-        await state.clear()
-        return
-
-    conn = connect_to_database()
     try:
-        with conn.cursor() as cursor:
-            cursor.execute("""
-                INSERT INTO record 
-                (id_service, id_client, id_master, date, time) 
-                VALUES (%s, %s, %s, %s, %s)
-            """, (
-                int(service_id),
-                callback.from_user.id,
-                int(master_id),
-                selected_date,
-                selected_time
-            ))
-            conn.commit()
+        _, service_id, master_id, date_str, time_str = callback.data.split('_')
+        selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        selected_time = datetime.strptime(time_str, '%H:%M').time()
 
-            await callback.message.answer(
-                "✅ Запись успешно оформлена!",
-                reply_markup=get_client_main_menu()
-            )
+        conn = connect_to_database()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO record 
+                    (id_service, id_client, id_master, date, time)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (
+                    int(service_id),
+                    callback.from_user.id,
+                    int(master_id),
+                    selected_date,
+                    selected_time
+                ))
+                conn.commit()
 
-            # Уведомление мастеру (можно реализовать через utils.notify_master_about_appointment)
+                await callback.message.edit_text(
+                    "✅ Запись успешно оформлена!",
+                    reply_markup=None
+                )
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.error(f"Ошибка подтверждения записи: {e}")
+        await callback.message.answer("Произошла ошибка при записи")
     finally:
-        conn.close()
+        await state.clear()
+        await callback.answer()
+
+
+@router.callback_query(F.data == 'cancel_appointment')
+async def handle_cancellation(callback: CallbackQuery, state: FSMContext):
+    """Обработка отмены записи"""
+    await callback.message.edit_text(
+        "Запись отменена",
+        reply_markup=None
+    )
     await state.clear()
     await callback.answer()
 
