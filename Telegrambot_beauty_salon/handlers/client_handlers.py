@@ -224,7 +224,8 @@ async def start_appointment_process(message: Message, state: FSMContext):
     conn = connect_to_database()
     try:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT id_services, name FROM services")
+            # Запрашиваем все необходимые поля для клавиатуры
+            cursor.execute("SELECT id_services, name, price, duration FROM services")
             services = cursor.fetchall()
 
             if services:

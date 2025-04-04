@@ -3,13 +3,18 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 def get_services_kb(services):
     """Клавиатура для выбора услуг"""
-    buttons = [
-        [InlineKeyboardButton(
-            text=f"{service[1]} - {service[2]} руб. ({service[3]} мин)",
-            callback_data=f"service_{service[0]}"
-        )]
-        for service in services
-    ]
+    buttons = []
+    for service in services:
+        # service[0] - id_services
+        # service[1] - name
+        # service[2] - price
+        # service[3] - duration
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"{service[1]} - {service[2]} руб. ({service[3]} мин)",
+                callback_data=f"service_{service[0]}"
+            )
+        ])
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
