@@ -1,43 +1,35 @@
 
-Beauty Salon Telegram Bot
-Бот для салона красоты, позволяющий клиентам записываться на услуги, а мастерам - управлять своими записями. Реализован на aiogram 3.x с использованием PostgreSQL.
+# Beauty Salon Telegram Bot
+> *Бот для салона красоты, позволяющий клиентам записываться на услуги, а мастерам - управлять своими записями. Реализован на aiogram 3.x с использованием PostgreSQL.*
 
-📌 Функционал
-Для клиентов:
-Просмотр услуг и цен
+### 📌  Функционал 
+##### Для клиентов:
+* Просмотр услуг и цен  
+* Запись на услуги  
+* Просмотр своих записей  
+* Управление профилем  
+* Возможность оплаты  
 
-Запись на услуги
+##### Для мастеров:
+* Просмотр своих записей  
+* Управление профилем  
+* Просмотр графика работы  
 
-Просмотр своих записей
+##### Для администраторов:
+* Добавление новых мастеров  
+* Добавление новых услуг  
+* Просмотр статистики  
 
-Управление профилем
+### 🛠 Технологии
+* Python 3.10+  
+* Aiogram 3.x  
+* PostgreSQL  
+* psycopg2-binary  
+* python-dotenv  
+* yookassa   
+* flask  
 
-Для мастеров:
-Просмотр своих записей
-
-Управление профилем
-
-Просмотр графика работы
-
-Для администраторов:
-Добавление новых мастеров
-
-Добавление новых услуг
-
-Просмотр статистики
-
-🛠 Технологии
-Python 3.10+
-
-Aiogram 3.x
-
-PostgreSQL
-
-psycopg2-binary
-
-python-dotenv
-
-⚙️ Установка
+### ⚙️ Установка
 
 1 Клонируйте репозиторий:
 ```bash
@@ -75,35 +67,35 @@ PAYMENT_PROVIDER_TOKEN=ххх
 ```
 Что бы узнать свой telegram id обратитесь к "@my_id_bot"
 
-🏃‍♂️ Запуск
+### 🏃‍♂️ Запуск
 
 1 Запустите бота:
 ```bash
 python main.py
 ```
 
-🗄 Структура проекта
-beauty-salon-bot/
-├── .env
-├── .gitignore
-├── main.py
-├── database.py
-├── requirements.txt
-├── middleware.py
-├── keyboards.py
-├── utils.py
-├── bot_instance.py
-├── payments.py
-├── Webhook.py
-├── handlers/
-│   ├── __init__.py
-│   ├── common_handlers.py
-│   ├── client_handlers.py
-│   ├── master_handlers.py
-│   └── admin_handlers.py
-└── README.md
+### 🗄 Структура проекта  
+beauty-salon-bot/  
+├── .env  
+├── .gitignore  
+├── main.py  
+├── database.py  
+├── requirements.txt  
+├── middleware.py  
+├── keyboards.py  
+├── utils.py  
+├── bot_instance.py  
+├── payments.py  
+├── Webhook.py  
+├── handlers/  
+│   ├── __init__.py  
+│   ├── common_handlers.py  
+│   ├── client_handlers.py  
+│   ├── master_handlers.py  
+│   └── admin_handlers.py  
+└── README.md  
 
-🔧 Настройка PostgreSQL
+### 🔧 Настройка PostgreSQL
 
 1 Установите PostgreSQL
 
@@ -126,10 +118,10 @@ ADMIN=ххх
 PAYMENT_PROVIDER_TOKEN=ххх
 ```
 
-📜 Лицензия
+### 📜 Лицензия
 
 MIT License
 
-✉️ Контакты
+### ✉️ Контакты
 
-Ваше имя - your.email@example.com
+Гусаров Николай - nikolai_polos@mail.ru
