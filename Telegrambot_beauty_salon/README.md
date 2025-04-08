@@ -58,7 +58,7 @@ pip install -r requirements.txt
 ```
 или
 ```bash
-pip install aiogram psycopg2-binary python-dotenv
+pip install aiogram psycopg2-binary python-dotenv yookassa flask
 ```
 
 4 Создайте файл .env на основе .env.example:
@@ -84,20 +84,24 @@ python main.py
 
 🗄 Структура проекта
 beauty-salon-bot/
-├── .env.example
-├── README.md
+├── .env
+├── .gitignore
 ├── main.py
 ├── database.py
 ├── requirements.txt
 ├── middleware.py
 ├── keyboards.py
+├── utils.py
+├── bot_instance.py
+├── payments.py
+├── Webhook.py
 ├── handlers/
 │   ├── __init__.py
 │   ├── common_handlers.py
 │   ├── client_handlers.py
 │   ├── master_handlers.py
 │   └── admin_handlers.py
-└── utils.py
+└── README.md
 
 🔧 Настройка PostgreSQL
 

@@ -109,9 +109,20 @@ def initialize_database():
             date DATE NOT NULL,
             time TIME NOT NULL,
             FOREIGN KEY (id_service) REFERENCES services (id_services),
-            FOREIGN KEY (id_client) REFERENCES users (id_user_telegram),
-            FOREIGN KEY (id_master) REFERENCES users (id_user_telegram)
-        """, None)
+            FOREIGN KEY (id_client) REFERENCES users (id_user_telegram) ON DELETE CASCADE,
+            FOREIGN KEY (id_master) REFERENCES users (id_user_telegram) ON DELETE CASCADE
+        """, None),
+
+        ("payments", """
+            id_payment SERIAL PRIMARY KEY,
+            payment_id VARCHAR(50) NOT NULL UNIQUE,
+            id_record INTEGER REFERENCES record(id_record),
+            amount INTEGER NOT NULL,
+            currency VARCHAR(10) NOT NULL DEFAULT 'RUB',
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            paid_at TIMESTAMP
+    """, None)
     ]
 
     try:

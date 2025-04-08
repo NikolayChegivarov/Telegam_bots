@@ -31,6 +31,24 @@ def get_masters_kb(masters):
     )
 
 
+def get_payment_check_kb(payment_id):
+    """Клавиатура для проверки оплаты"""
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="🔍 Проверить оплату",
+                    callback_data=f"check_payment_{payment_id}"
+                ),
+                InlineKeyboardButton(
+                    text="🌐 Оплатить",
+                    url=f"https://yookassa.ru/payments/{payment_id}"
+                )
+            ]
+        ]
+    )
+
+
 def get_dates_kb(dates):
     """Клавиатура для выбора даты"""
     buttons = [
