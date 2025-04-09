@@ -112,11 +112,12 @@ TELEGRAM_TOKEN_BOT=ваш_токен_бота
 HOST=localhost
 NAME_DB=beauty_salon
 USER=postgres
-PASSWORD_DB=ваш_пароль
+PASSWORD_DB=пароль роли postgres
 PORT=5432
 NAME_DB=Telegrambot_beauty_salon
-ADMIN=ххх
-PAYMENT_PROVIDER_TOKEN=ххх
+ADMIN=tg id администратора
+YOOKASSA_SHOP_ID (идентификатор магазина)
+YOOKASSA_SECRET_KEY (секретный ключ API)
 ```
 
 ### 📜 Лицензия

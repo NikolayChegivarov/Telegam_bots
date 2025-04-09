@@ -4,28 +4,12 @@ from aiogram.fsm.context import FSMContext
 from yookassa import Payment
 import logging
 from database import connect_to_database
-from datetime import datetime
+# from datetime import datetime
+
+from keyboards import get_payment_check_kb
 
 router = Router()
 logger = logging.getLogger(__name__)
-
-
-def get_payment_check_kb(payment_id):
-    """Клавиатура для проверки оплаты"""
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🔍 Проверить оплату",
-                    callback_data=f"check_payment_{payment_id}"
-                ),
-                InlineKeyboardButton(
-                    text="🌐 Оплатить",
-                    url=f"https://yookassa.ru/payments/{payment_id}"
-                )
-            ]
-        ]
-    )
 
 
 async def save_appointment_to_db(data):
