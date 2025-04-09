@@ -85,6 +85,10 @@ def get_confirm_appointment_kb(service_id, master_id, appointment_date, appointm
                     callback_data=f"confirm_{service_id}_{master_id}_{date_str}_{time_str}"
                 ),
                 InlineKeyboardButton(
+                    text="✅₽ Подтвердить и оплатить",
+                    callback_data=f"payment_{service_id}_{master_id}_{date_str}_{time_str}"
+                ),
+                InlineKeyboardButton(
                     text="❌ Отменить",
                     callback_data="cancel_appointment"
                 )

@@ -210,7 +210,7 @@ async def confirm_appointment(callback: CallbackQuery, state: FSMContext):
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    INSERT INTO record 
+                    INSERT INTO record
                     (id_service, id_client, id_master, date, time)
                     VALUES (%s, %s, %s, %s, %s)
                 """, (

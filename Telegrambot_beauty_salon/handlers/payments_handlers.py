@@ -4,7 +4,7 @@ from aiogram.fsm.context import FSMContext
 from yookassa import Payment
 import logging
 from database import connect_to_database
-# from datetime import datetime
+from datetime import datetime
 
 from keyboards import get_payment_check_kb
 
@@ -67,7 +67,7 @@ async def update_payment_status(payment_id, status):
         conn.close()
 
 
-@router.callback_query(F.data.startswith('confirm_payment_'))
+@router.callback_query(F.data.startswith('payment_'))
 async def confirm_appointment_with_payment(callback: CallbackQuery, state: FSMContext):
     """Подтверждение записи с созданием платежа"""
     try:
