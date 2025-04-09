@@ -87,6 +87,7 @@ beauty-salon-bot/
 ├── bot_instance.py  
 ├── payments.py  
 ├── Webhook.py  
+├── requirements.txt  
 ├── handlers/  
 │   ├── __init__.py  
 │   ├── common_handlers.py  
