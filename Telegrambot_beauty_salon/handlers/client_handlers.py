@@ -171,6 +171,14 @@ async def time_selected(callback: CallbackQuery, state: FSMContext):
                 """, (data['service_id'], data['master_id']))
                 service_name, price, master_first, master_last = cursor.fetchone()
 
+                # Сохраняем все данные в состояние
+                await state.update_data({
+                    'service_name': service_name,
+                    'price': price,
+                    'time': selected_time,
+                    'time_str': time_str
+                })
+
                 confirmation_text = (
                     f"Подтвердите запись:\n\n"
                     f"🔹 Услуга: {service_name}\n"

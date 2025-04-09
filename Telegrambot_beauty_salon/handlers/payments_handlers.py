@@ -71,11 +71,23 @@ async def update_payment_status(payment_id, status):
 async def confirm_appointment_with_payment(callback: CallbackQuery, state: FSMContext):
     """Подтверждение записи с созданием платежа"""
     try:
+        # Получаем все данные из состояния
         data = await state.get_data()
-        data['user_id'] = callback.from_user.id
+
+        # Проверяем наличие всех необходимых данных
+        required_fields = ['service_id', 'master_id', 'date', 'time', 'service_name', 'price']
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field in state: {field}")
 
         # Сохраняем запись
-        appointment_id = await save_appointment_to_db(data)
+        appointment_id = await save_appointment_to_db({
+            'service_id': data['service_id'],
+            'user_id': callback.from_user.id,
+            'master_id': data['master_id'],
+            'date': data['date'],
+            'time': data['time']
+        })
 
         # Создаем платеж в ЮKassa
         payment = Payment.create({
@@ -107,6 +119,8 @@ async def confirm_appointment_with_payment(callback: CallbackQuery, state: FSMCo
     except Exception as e:
         logger.error(f"Payment error: {e}")
         await callback.message.answer("Ошибка при создании платежа. Попробуйте позже.")
+    finally:
+        await callback.answer()
 
 
 @router.callback_query(F.data.startswith('check_payment_'))
