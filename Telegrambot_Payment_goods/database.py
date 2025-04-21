@@ -1,11 +1,35 @@
 from datetime import datetime
-
 import psycopg2
 from psycopg2 import sql
 import os
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
+from config import Config
 
-load_dotenv()
+# load_dotenv()
+
+def get_connection():
+    return psycopg2.connect(
+        host=Config.DB_HOST,
+        database=Config.DB_NAME,
+        user=Config.DB_USER,
+        password=Config.DB_PASSWORD,
+        port=Config.DB_PORT
+    )
+
+def update_payment_status(service_id, client_id):
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE My_services SET payment_status = 'Оплачен', "
+                    "client = %s, paid_at = CURRENT_TIMESTAMP WHERE id_services = %s",
+                    (client_id, service_id)
+                )
+        return True
+    except Exception as e:
+        print(f"Error updating payment status: {e}")
+        return False
+
 
 def connect_to_database(dbname=None):
     """Функция устанавливает подключение к базе данных указанной в аргументе."""
@@ -26,11 +50,13 @@ def connect_to_database(dbname=None):
 
 def check_and_create_db():
     """Проверка наличия базы данных и её создание, если она отсутствует."""
-    connection = connect_to_database(dbname="postgres")  # Подключение к стандартной базе данных
-    if not connection:
-        return
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database(dbname="postgres")  # Подключение к стандартной базе данных
+        if not connection:
+            return False
+
         connection.autocommit = True
         cursor = connection.cursor()
 
@@ -45,75 +71,97 @@ def check_and_create_db():
         else:
             print(f"База данных {os.getenv('NAME_DB')} уже существует.")
 
-        cursor.close()
         return True
     except Exception as e:
         print(f"Ошибка при проверке или создании базы данных: {e}")
+        return False
     finally:
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def initialize_database():
     """Функция для инициализации базы данных, включая создание таблиц, если они отсутствуют."""
-    connection = connect_to_database()
-    if not connection:
-        return
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return False
+
         cursor = connection.cursor()
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS My_services (
                 id_services BIGINT PRIMARY KEY,
-                description VARCHAR(200),
-                Amount NUMERIC(10, 2) NOT NULL,
-                payment_status VARCHAR(30) NOT NULL 
-                    CHECK (payment_status IN ('Оплачен', 'Не оплачен')),
-                client VARCHAR(50) NULL,
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                description VARCHAR(200) NOT NULL,
+                amount NUMERIC(10, 2) NOT NULL,
+                client VARCHAR(50) NULL,
+                status_services VARCHAR(30) NOT NULL 
+                    DEFAULT 'Не сделано'
+                    CHECK (status_services IN ('Сделано', 'Не сделано')),
+                performed_at TIMESTAMP NULL,                   
+                payment_status VARCHAR(30) NOT NULL 
+                    DEFAULT 'Не оплачен'
+                    CHECK (payment_status IN ('Оплачен', 'Не оплачен')),
                 paid_at TIMESTAMP NULL
             )
         """)
 
         connection.commit()
         print("Таблица My_services успешно создана или уже существует.")
-
+        return True
     except Exception as e:
-        connection.rollback()
+        if connection:
+            connection.rollback()
         print(f"Ошибка при создании таблицы: {e}")
+        return False
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def create_service(description, amount):
     """Создать новую услугу"""
-    connection = connect_to_database()
-    if not connection:
-        return None
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return None
+
         cursor = connection.cursor()
         service_id = int(datetime.now().timestamp())
         cursor.execute(
-            "INSERT INTO My_services (id_services, description, Amount, payment_status, client) VALUES (%s, %s, %s, %s, %s)",
+            "INSERT INTO My_services (id_services, description, amount, payment_status, client, performed_at, paid_at) "
+            "VALUES (%s, %s, %s, %s, %s, NULL, NULL)",
             (service_id, description, amount, 'Не оплачен', '')
         )
         connection.commit()
         return service_id
     except Exception as e:
         print(f"Error creating service: {e}")
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return None
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def get_service_by_id(service_id):
     """Получить услугу по ID"""
-    connection = connect_to_database()
-    if not connection:
-        return None
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return None
+
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM My_services WHERE id_services = %s", (service_id,))
         return cursor.fetchone()
@@ -121,16 +169,20 @@ def get_service_by_id(service_id):
         print(f"Error getting service: {e}")
         return None
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def update_service_description(service_id, new_description):
     """Обновить описание услуги"""
-    connection = connect_to_database()
-    if not connection:
-        return False
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return False
+
         cursor = connection.cursor()
         cursor.execute(
             "UPDATE My_services SET description = %s WHERE id_services = %s",
@@ -140,63 +192,78 @@ def update_service_description(service_id, new_description):
         return True
     except Exception as e:
         print(f"Error updating service description: {e}")
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return False
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def update_service_amount(service_id, new_amount):
     """Обновить стоимость услуги"""
-    connection = connect_to_database()
-    if not connection:
-        return False
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return False
+
         cursor = connection.cursor()
         cursor.execute(
-            "UPDATE My_services SET Amount = %s WHERE id_services = %s",
+            "UPDATE My_services SET amount = %s WHERE id_services = %s",
             (new_amount, service_id)
         )
         connection.commit()
         return True
     except Exception as e:
         print(f"Error updating service amount: {e}")
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return False
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def update_service(service_id, new_description, new_amount):
     """Обновить описание и стоимость услуги"""
-    connection = connect_to_database()
-    if not connection:
-        return False
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return False
+
         cursor = connection.cursor()
         cursor.execute(
-            "UPDATE My_services SET description = %s, Amount = %s WHERE id_services = %s",
+            "UPDATE My_services SET description = %s, amount = %s WHERE id_services = %s",
             (new_description, new_amount, service_id)
         )
         connection.commit()
         return True
     except Exception as e:
         print(f"Error updating service: {e}")
-        connection.rollback()
+        if connection:
+            connection.rollback()
         return False
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
 
 def status_service(service_id):
     """Получить статус услуги по ID"""
-    connection = connect_to_database()
-    if not connection:
-        return None
-
+    connection = None
+    cursor = None
     try:
+        connection = connect_to_database()
+        if not connection:
+            return None
+
         cursor = connection.cursor()
         cursor.execute("SELECT payment_status FROM My_services WHERE id_services = %s", (service_id,))
         result = cursor.fetchone()
@@ -205,5 +272,7 @@ def status_service(service_id):
         print(f"Error getting service status: {e}")
         return None
     finally:
-        cursor.close()
-        connection.close()
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
