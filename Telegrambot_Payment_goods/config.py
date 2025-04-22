@@ -8,6 +8,7 @@ class Config:
     TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN_BOT')
     PAYMENT_PROVIDER_TOKEN = os.getenv('PAYMENT_PROVIDER_TOKEN')
     ADMINS = list(map(int, os.getenv("ADMIN").split(',')))
+    SHOP_ID = os.getenv('SHOP_ID')
 
     # Database settings
     DB_NAME = os.getenv("NAME_DB")

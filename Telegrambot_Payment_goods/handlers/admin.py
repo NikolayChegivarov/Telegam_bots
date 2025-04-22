@@ -57,7 +57,7 @@ async def process_amount(message: types.Message, state: FSMContext):
 
 @router.message(F.text == "Посмотреть статус заказа")
 async def check_order_status(message: types.Message, state: FSMContext):
-    await message.answer("Введите ID заказа:")
+    await message.answer("Введите № заказа:")
     await state.set_state(OrderStates.waiting_for_admin_order_id)
 
 
@@ -81,7 +81,7 @@ async def process_admin_order_id(message: types.Message, state: FSMContext):
 
 @router.message(F.text == "Исправить заказ")
 async def update_order(message: types.Message, state: FSMContext):
-    await message.answer("Введите ID заказа для исправления:")
+    await message.answer("Введите № заказа для исправления:")
     await state.set_state(OrderStates.waiting_for_order_update)
 
 

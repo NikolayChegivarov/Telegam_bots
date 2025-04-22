@@ -9,4 +9,4 @@ class OrderStates(StatesGroup):
     waiting_for_new_description = State()
     waiting_for_new_amount = State()
     waiting_for_admin_order_id = State()
-    waiting_for_status_order_id = State()   # Состояние ожидания ID заказа для получения статуса
+    waiting_for_status_order_id = State()   # Состояние ожидания № заказа для получения статуса

@@ -2,7 +2,8 @@ from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 
 from states import OrderStates
-from keyboards.client_kb import get_client_keyboard, get_payment_keyboard
+from keyboards.client_kb import get_client_keyboard
+from keyboards.payment_kb import get_payment_keyboard
 from database import get_service_by_id, status_service
 
 router = Router()
@@ -19,19 +20,21 @@ async def pay_service(message: types.Message, state: FSMContext):
 
 @router.message(OrderStates.waiting_for_order_id)
 async def process_order_id(message: types.Message, state: FSMContext):
-    order_id = message.text
-    service = get_service_by_id(order_id)
+    id_services = message.text
+    service = get_service_by_id(id_services)
+    user_id = message.from_user.id
+    print(f"нашли user_id {user_id}")
 
     if service:
         description, amount = service[2], service[3]  # description и amount из БД
-        await state.update_data(order_id=order_id, amount=amount)
+        await state.update_data(id_services=id_services, description=description, amount=amount, user_id=user_id)
         await message.answer(
             f"Описание услуги: {description}\nСтоимость: {amount} руб.",
             reply_markup=get_payment_keyboard()
         )
     else:
         await message.answer(
-            "Услуга не найдена. Проверьте ID заказа.",
+            "Услуга не найдена. Проверьте № заказа.",
             reply_markup=get_client_keyboard()
         )
     await state.clear()
@@ -40,7 +43,7 @@ async def process_order_id(message: types.Message, state: FSMContext):
 @router.message(F.text == "Посмотреть статус услуги")
 async def check_service_status(message: types.Message, state: FSMContext):
     await message.answer(
-        "Введите ID заказа для проверки статуса:",
+        "Введите № заказа для проверки статуса:",
         reply_markup=types.ReplyKeyboardRemove()
     )
     await state.set_state(OrderStates.waiting_for_status_order_id)
@@ -60,7 +63,7 @@ async def obtaining_status(message: types.Message, state: FSMContext):
         )
     else:
         await message.answer(
-            "Услуга не найдена. Проверьте ID заказа.",
+            "Услуга не найдена. Проверьте № заказа.",
             reply_markup=get_client_keyboard()
         )
     await state.clear()
