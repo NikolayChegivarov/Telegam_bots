@@ -8,10 +8,10 @@ from database import get_service_by_id, status_service
 router = Router()
 
 
-@router.message(F.text == "Оплатить услугу")
+@router.message(F.text == "Выбрать услугу для оплаты")
 async def pay_service(message: types.Message, state: FSMContext):
     await message.answer(
-        "Введите ID заказа, который вам предоставил администратор:",
+        "Введите номер заказа, который вам предоставил администратор:",
         reply_markup=types.ReplyKeyboardRemove()
     )
     await state.set_state(OrderStates.waiting_for_order_id)
@@ -23,7 +23,7 @@ async def process_order_id(message: types.Message, state: FSMContext):
     service = get_service_by_id(order_id)
 
     if service:
-        description, amount = service[1], service[2]  # description и amount из БД
+        description, amount = service[2], service[3]  # description и amount из БД
         await state.update_data(order_id=order_id, amount=amount)
         await message.answer(
             f"Описание услуги: {description}\nСтоимость: {amount} руб.",
@@ -43,7 +43,27 @@ async def check_service_status(message: types.Message, state: FSMContext):
         "Введите ID заказа для проверки статуса:",
         reply_markup=types.ReplyKeyboardRemove()
     )
-    await state.set_state(OrderStates.waiting_for_order_id)
+    await state.set_state(OrderStates.waiting_for_status_order_id)
+
+
+@router.message(OrderStates.waiting_for_status_order_id)
+async def obtaining_status(message: types.Message, state: FSMContext):
+    order_id = message.text
+    service = get_service_by_id(order_id)
+
+    if service:
+        payment_status = service[7]  # payment_status из БД
+        print(f"Статус оплаты: {payment_status}")
+        await message.answer(
+            f"Статус оплаты услуги: {payment_status}.",
+            reply_markup=get_client_keyboard()
+        )
+    else:
+        await message.answer(
+            "Услуга не найдена. Проверьте ID заказа.",
+            reply_markup=get_client_keyboard()
+        )
+    await state.clear()
 
 
 @router.callback_query(F.data == "back_to_menu")

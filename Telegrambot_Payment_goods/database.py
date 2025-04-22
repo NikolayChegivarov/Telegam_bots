@@ -16,20 +16,6 @@ def get_connection():
         port=Config.DB_PORT
     )
 
-def update_payment_status(service_id, client_id):
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(
-                    "UPDATE My_services SET payment_status = 'Оплачен', "
-                    "client = %s, paid_at = CURRENT_TIMESTAMP WHERE id_services = %s",
-                    (client_id, service_id)
-                )
-        return True
-    except Exception as e:
-        print(f"Error updating payment status: {e}")
-        return False
-
 
 def connect_to_database(dbname=None):
     """Функция устанавливает подключение к базе данных указанной в аргументе."""
@@ -276,3 +262,22 @@ def status_service(service_id):
             cursor.close()
         if connection:
             connection.close()
+
+
+def update_payment_status(service_id, client_id):
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE My_services SET payment_status = 'Оплачен', "
+                    "client = %s, paid_at = CURRENT_TIMESTAMP WHERE id_services = %s",
+                    (client_id, service_id)
+                )
+        return True
+    except Exception as e:
+        print(f"Error updating payment status: {e}")
+        return False
+
+
+def update_service_status(order_id: str, status: str):
+    """Обновляет статус услуги в базе данных"""

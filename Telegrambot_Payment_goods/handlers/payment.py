@@ -11,6 +11,7 @@ async def process_payment(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     order_id = data.get('order_id')
     amount = data.get('amount')
+    print(f"data {data} order_id {order_id} amount {amount}")
 
     # Здесь должна быть реализация оплаты через ЮКассу
     # await bot.send_invoice(...)
