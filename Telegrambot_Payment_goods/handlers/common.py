@@ -9,6 +9,7 @@ router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
+    """Делит пользователей на клиентов и администраторов."""
     if message.from_user.id in Config.ADMINS:
         await message.answer("Добро пожаловать, Администратор",
                            reply_markup=get_admin_keyboard())

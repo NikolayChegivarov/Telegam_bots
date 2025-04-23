@@ -1,6 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
-from datetime import datetime
+# from datetime import datetime
 
 from states import OrderStates
 from keyboards.admin_kb import get_admin_keyboard, get_update_choice_keyboard
@@ -15,7 +15,7 @@ from database import (
 
 router = Router()
 
-
+# СОЗДАТЬ ЗАКАЗ
 @router.message(F.text == "Создать заказ")
 async def create_order(message: types.Message, state: FSMContext):
     await message.answer("Опишите услугу:")
@@ -54,14 +54,14 @@ async def process_amount(message: types.Message, state: FSMContext):
     finally:
         await state.clear()
 
-
-@router.message(F.text == "Посмотреть статус заказа")
+# ПРОСМОТР СТАТУСА
+@router.message(F.text == "Посмотреть статус оплаты заказа")
 async def check_order_status(message: types.Message, state: FSMContext):
     await message.answer("Введите № заказа:")
-    await state.set_state(OrderStates.waiting_for_admin_order_id)
+    await state.set_state(OrderStates.waiting_for_payment_status)
 
 
-@router.message(OrderStates.waiting_for_admin_order_id)
+@router.message(OrderStates.waiting_for_payment_status)
 async def process_admin_order_id(message: types.Message, state: FSMContext):
     order_id = message.text
     status = status_service(order_id)
@@ -78,7 +78,7 @@ async def process_admin_order_id(message: types.Message, state: FSMContext):
         )
     await state.clear()
 
-
+# ИСПРАВЛЕНИЕ ЗАКАЗА
 @router.message(F.text == "Исправить заказ")
 async def update_order(message: types.Message, state: FSMContext):
     await message.answer("Введите № заказа для исправления:")
@@ -170,3 +170,7 @@ async def process_new_amount(message: types.Message, state: FSMContext):
         return
     finally:
         await state.clear()
+
+# ПРОСМОТР ЗАКАЗА
+# ПРОСМОТР ЗАКАЗОВ
+# изменить статус на сделано, увевдомление клиенту

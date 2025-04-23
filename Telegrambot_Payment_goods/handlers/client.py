@@ -9,6 +9,15 @@ from database import get_service_by_id, status_service
 router = Router()
 
 
+@router.callback_query(F.data == "back_to_menu")
+async def back_to_menu(callback: types.CallbackQuery):
+    await callback.message.answer(
+        "Главное меню:",
+        reply_markup=get_client_keyboard()
+    )
+    await callback.answer()
+
+# ОПЛАТА УСЛУГИ
 @router.message(F.text == "Выбрать услугу для оплаты")
 async def pay_service(message: types.Message, state: FSMContext):
     await message.answer(
@@ -23,13 +32,13 @@ async def process_order_id(message: types.Message, state: FSMContext):
     id_services = message.text
     service = get_service_by_id(id_services)
     user_id = message.from_user.id
-    print(f"нашли user_id {user_id}")
 
     if service:
         description, amount = service[2], service[3]  # description и amount из БД
         await state.update_data(id_services=id_services, description=description, amount=amount, user_id=user_id)
+        print(f"ЗАНОСИМ ДАННЫЕ: id_services {id_services} user_id {user_id} description {description} amount {amount} user_id {user_id}")
         await message.answer(
-            f"Описание услуги: {description}\nСтоимость: {amount} руб.",
+            f"Описание услуги: \n{description}\nСтоимость: {amount} руб.",
             reply_markup=get_payment_keyboard()
         )
     else:
@@ -37,10 +46,10 @@ async def process_order_id(message: types.Message, state: FSMContext):
             "Услуга не найдена. Проверьте № заказа.",
             reply_markup=get_client_keyboard()
         )
-    await state.clear()
+        await state.clear()
 
-
-@router.message(F.text == "Посмотреть статус услуги")
+# СТАТУС ОПЛАТЫ
+@router.message(F.text == "Посмотреть статус оплаты услуги")
 async def check_service_status(message: types.Message, state: FSMContext):
     await message.answer(
         "Введите № заказа для проверки статуса:",
@@ -69,10 +78,3 @@ async def obtaining_status(message: types.Message, state: FSMContext):
     await state.clear()
 
 
-@router.callback_query(F.data == "back_to_menu")
-async def back_to_menu(callback: types.CallbackQuery):
-    await callback.message.answer(
-        "Главное меню:",
-        reply_markup=get_client_keyboard()
-    )
-    await callback.answer()

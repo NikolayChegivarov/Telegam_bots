@@ -18,10 +18,10 @@ async def process_payment(callback: CallbackQuery, state: FSMContext, bot: Bot):
     amount = data.get('amount')
     user_id = data.get('user_id')
 
-    print(f"id_services {id_services} description {description} amount {amount}")
+    print(f"ПОЛУЧИЛИ ДАННЫЕ?: id_services {id_services} description {description} amount {amount}")
 
     if not id_services or not amount:
-        await callback.message.answer("Ошибка: данные заказа не найдены")
+        await callback.message.answer("Ошибка: данные заказа не найдены, обратитесь к администратору.")
         await state.clear()
         return
 
@@ -49,24 +49,29 @@ async def process_payment(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
     except Exception as e:
         await callback.message.answer(f"Произошла ошибка: {str(e)}")
+        print(f"Произошла ошибка: {str(e)}")
 
     await callback.answer()
 
 async def create_yookassa_payment(
-        bot: Bot,  # Changed from types.Bot to Bot since you're importing Bot directly
-        user_id: int,  # ID пользователя в Telegram
-        amount: float,  # Сумма платежа
-        description: str,  # Описание платежа
-        shop_id: str,  # ID магазина в ЮKassa
-        secret_key: str,  # Секретный ключ ЮKassa
-        return_url: Optional[str] = None,  # URL для возврата после оплаты (опционально)
-        currency: str = "RUB",  # Валюта платежа (по умолчанию RUB)
-        save_payment_method: bool = False,  # Сохранить метод оплаты (по умолчанию False)
-        metadata: Optional[Dict[str, Any]] = None  # Дополнительные метаданные (опционально)
+        bot: Bot,
+        user_id: int,
+        amount: float,
+        description: str,
+        shop_id: str,
+        secret_key: str,
+        return_url: Optional[str] = None,
+        currency: str = "RUB",
+        save_payment_method: bool = False,
+        metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Создает платеж через ЮKassa API
     """
+    # Получаем информацию о боте, чтобы узнать username
+    bot_info = await bot.get_me()
+    bot_username = bot_info.username
+
     url = "https://api.yookassa.ru/v3/payments"
 
     headers = {
@@ -84,11 +89,11 @@ async def create_yookassa_payment(
         "capture": True,
         "confirmation": {
             "type": "redirect",
-            "return_url": return_url or f"https://t.me/{bot.username}?start=payment_{user_id}"
+            "return_url": return_url or f"https://t.me/{bot_username}?start=payment_{user_id}"
         },
         "description": description,
         "save_payment_method": save_payment_method,
-        "metadata": metadata or {"user_id": user_id, "telegram_username": bot.username}
+        "metadata": metadata or {"user_id": user_id, "telegram_username": bot_username}
     }
 
     async with aiohttp.ClientSession() as session:
