@@ -16,14 +16,33 @@ def get_connection():
         port=Config.DB_PORT
     )
 
+def update_payment_status(service_id, client_id):
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE My_services SET payment_status = 'Оплачен', "
+                    "client = %s, paid_at = CURRENT_TIMESTAMP WHERE id_services = %s",
+                    (client_id, service_id)
+                )
+        return True
+    except Exception as e:
+        print(f"Error updating payment status: {e}")
+        return False
+
 
 def connect_to_database(dbname=None):
     """Функция устанавливает подключение к базе данных указанной в аргументе."""
-    if dbname is not None:
-        # Если указано конкретное имя БД, используем его
-        Config.DB_NAME = dbname
+    if dbname is None:
+        dbname = os.getenv("NAME_DB")
     try:
-        connection = get_connection()
+        connection = psycopg2.connect(
+            host=os.getenv("HOST"),
+            database=dbname if dbname else os.getenv("NAME_DB"),
+            user=os.getenv("USER"),
+            password=os.getenv("PASSWORD_DB"),
+            port=os.getenv("PORT")
+        )
         return connection
     except (Exception, psycopg2.Error) as error:
         print(f"Ошибка при подключении к PostgreSQL: {error}")
