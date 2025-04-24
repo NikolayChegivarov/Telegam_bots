@@ -36,7 +36,6 @@ async def process_order_id(message: types.Message, state: FSMContext):
     if service:
         description, amount = service[2], service[3]  # description и amount из БД
         await state.update_data(id_services=id_services, description=description, amount=amount, user_id=user_id)
-        print(f"ЗАНОСИМ ДАННЫЕ: id_services {id_services} user_id {user_id} description {description} amount {amount} user_id {user_id}")
         await message.answer(
             f"Описание услуги: \n{description}\nСтоимость: {amount} руб.",
             reply_markup=get_payment_keyboard()

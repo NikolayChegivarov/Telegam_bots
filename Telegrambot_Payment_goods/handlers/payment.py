@@ -18,8 +18,6 @@ async def process_payment(callback: CallbackQuery, state: FSMContext, bot: Bot):
     amount = data.get('amount')
     user_id = data.get('user_id')
 
-    print(f"ПОЛУЧИЛИ ДАННЫЕ?: id_services {id_services} description {description} amount {amount}")
-
     if not id_services or not amount:
         await callback.message.answer("Ошибка: данные заказа не найдены, обратитесь к администратору.")
         await state.clear()
