@@ -127,10 +127,25 @@ async def process_required_workers(message: types.Message, state: FSMContext):
         if workers < 1:
             raise ValueError
     except ValueError:
-        await message.answer("Пожалуйста, введите корректное число (1 и более)")
+        await message.answer("Пожалуйста, введите корректное число работников (1 и более)")
         return
 
     await state.update_data(required_workers=workers)
+    await message.answer("Укажите цену оплаты на одного человека (в рублях):")
+    await state.set_state(OrderStates.waiting_worker_price)  # Переходим к запросу цены
+
+
+@router.message(OrderStates.waiting_worker_price)
+async def process_worker_price(message: types.Message, state: FSMContext):
+    try:
+        price = float(message.text)
+        if price <= 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("Пожалуйста, введите корректную сумму (например: 1000 или 1500.50)")
+        return
+
+    await state.update_data(worker_price=price)
 
     # Получаем все данные из состояния
     data = await state.get_data()
@@ -144,7 +159,8 @@ async def process_required_workers(message: types.Message, state: FSMContext):
             'description': data['description'],
             'main_address': data['main_address'],
             'additional_address': data['additional_address'],
-            'required_workers': data['required_workers']
+            'required_workers': data['required_workers'],
+            'worker_price': data['worker_price']  # Передаем цену из данных состояния
         })
 
         await message.answer(
@@ -155,13 +171,9 @@ async def process_required_workers(message: types.Message, state: FSMContext):
             f"Время: {data['appointment_time'].strftime('%H:%M')}\n"
             f"Адрес: {data['main_address']}\n"
             f"Доп. адрес: {data['additional_address'] or 'нет'}\n"
-            f"Кол-во человек: {data['required_workers']}"
+            f"Кол-во человек: {data['required_workers']}\n"
+            f"Оплата одному человеку: {data['worker_price']} руб."
         )
-
-        await message.answer("Добро пожаловать, Администратор!",
-                           reply_markup=get_admin_keyboard())
-
-
     except Exception as e:
         await message.answer("Произошла ошибка при создании задачи. Попробуйте позже.")
         print(f"Error creating task: {e}")
