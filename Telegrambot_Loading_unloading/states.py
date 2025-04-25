@@ -5,11 +5,13 @@ class OrderStates(StatesGroup):
     waiting_type_of_task = State()  # Тип задачи
     waiting_date_of_destination = State()  # Дата назначения
     waiting_appointment_time = State()  # Время назначения
+    waiting_custom_time = State()  # Время вручную
     waiting_description = State()  # Описание
     waiting_main_address = State()   # Основной адрес
     waiting_additional_address = State()  # Дополнительный адрес
     waiting_required_workers = State()  # Количество человек
-    waiting_worker_price = State()
+    waiting_worker_price = State()  # Цена
+
 
     waiting_for_new_amount = State()  # Ожидание новой стоимости
     waiting_for_payment_status = State()  # Ожидание статуса оплаты

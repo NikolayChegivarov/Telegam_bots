@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from aiogram import F, types, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
@@ -52,19 +52,21 @@ async def process_task_type(message: types.Message, state: FSMContext):
 @router.message(OrderStates.waiting_date_of_destination)
 async def process_date(message: types.Message, state: FSMContext):
     try:
-        # Пытаемся распарсить дату
         date_obj = datetime.strptime(message.text, "%d.%m.%Y").date()
         await state.update_data(date_of_destination=date_obj)
     except ValueError:
         await message.answer("Пожалуйста, введите дату в формате ДД.ММ.ГГГГ")
         return
 
-    # Создаем клавиатуру с временными интервалами
+    # Создаем клавиатуру с временными интервалами и кнопкой ручного ввода
     builder = ReplyKeyboardBuilder()
-    for hour in range(8, 20, 1):  # С 8 утра до 8 вечера с шагом 2 часа
+    for hour in range(8, 20, 2):  # С 8 утра до 8 вечера с шагом 2 часа
         time_str = f"{hour:02d}:00"
         builder.add(types.KeyboardButton(text=time_str))
-    builder.adjust(3)
+
+    # Добавляем кнопку ручного ввода
+    builder.add(types.KeyboardButton(text="Указать вручную"))
+    builder.adjust(3, 1)  # 3 кнопки в ряду, затем "Указать вручную" отдельно
 
     await message.answer(
         "Выберите время назначения:",
@@ -75,19 +77,56 @@ async def process_date(message: types.Message, state: FSMContext):
 
 @router.message(OrderStates.waiting_appointment_time)
 async def process_time(message: types.Message, state: FSMContext):
-    try:
-        # Проверяем формат времени
-        time_obj = datetime.strptime(message.text, "%H:%M").time()
-        await state.update_data(appointment_time=time_obj)
-    except ValueError:
-        await message.answer("Пожалуйста, введите время в формате ЧЧ:ММ")
+    if message.text == "Указать вручную":
+        await message.answer(
+            "Введите время в формате ЧЧ:ММ (например, 11:50):",
+            reply_markup=types.ReplyKeyboardRemove()
+        )
+        await state.set_state(OrderStates.waiting_custom_time)
         return
 
+    try:
+        # Проверяем формат времени для стандартного выбора
+        time_obj = datetime.strptime(message.text, "%H:%M").time()
+        await state.update_data(appointment_time=time_obj)
+        await proceed_to_description(message, state)
+    except ValueError:
+        await message.answer("Пожалуйста, выберите время из предложенных вариантов или укажите вручную")
+
+
+@router.message(OrderStates.waiting_custom_time)
+async def process_custom_time(message: types.Message, state: FSMContext):
+    try:
+        # Проверяем формат времени для ручного ввода
+        time_obj = datetime.strptime(message.text, "%H:%M").time()
+        await state.update_data(appointment_time=time_obj)
+        await proceed_to_description(message, state)
+    except ValueError:
+        await message.answer("Пожалуйста, введите время в формате ЧЧ:ММ (например, 11:50)")
+
+
+async def proceed_to_description(message: types.Message, state: FSMContext):
     await message.answer(
         "Введите описание задачи:",
-        reply_markup=types.ReplyKeyboardRemove()  # Убираем клавиатуру
+        reply_markup=types.ReplyKeyboardRemove()
     )
     await state.set_state(OrderStates.waiting_description)
+
+
+@router.message(OrderStates.waiting_custom_time)
+async def process_custom_time(message: types.Message, state: FSMContext):
+    try:
+        time_obj = datetime.strptime(message.text, "%H:%M").time()
+
+        # Проверяем что время в рабочем диапазоне (8:00-20:00)
+        if time_obj < time(8, 0) or time_obj > time(19, 0):
+            await message.answer("Пожалуйста, укажите время между 8:00 и 20:00")
+            return
+
+        await state.update_data(appointment_time=time_obj)
+        await proceed_to_description(message, state)
+    except ValueError:
+        await message.answer("Пожалуйста, введите время в формате ЧЧ:ММ (например, 11:50)")
 
 
 @router.message(OrderStates.waiting_description)
@@ -174,8 +213,11 @@ async def process_worker_price(message: types.Message, state: FSMContext):
             f"Кол-во человек: {data['required_workers']}\n"
             f"Оплата одному человеку: {data['worker_price']} руб."
         )
+        await message.answer("Работаем дальше!",
+                             reply_markup=get_admin_keyboard())
     except Exception as e:
         await message.answer("Произошла ошибка при создании задачи. Попробуйте позже.")
         print(f"Error creating task: {e}")
 
     await state.clear()
+
