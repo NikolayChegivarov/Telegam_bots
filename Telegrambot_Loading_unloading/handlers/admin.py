@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, time
-from aiogram import F, types, Router
+from aiogram import F, types, Router, Bot
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from keyboards.admin_kb import get_admin_keyboard
+from keyboards.executor_kb import create_task_response_keyboard
 from states import OrderStates
-from database import create_task
+from database import create_task, get_all_users
 
 router = Router()
 
@@ -175,9 +176,9 @@ async def process_required_workers(message: types.Message, state: FSMContext):
 
 
 @router.message(OrderStates.waiting_worker_price)
-async def process_worker_price(message: types.Message, state: FSMContext):
+async def process_worker_price(message: types.Message, state: FSMContext, bot: Bot):
     try:
-        price = float(message.text)
+        price = float(message.text.replace(',', '.'))
         if price <= 0:
             raise ValueError
     except ValueError:
@@ -185,39 +186,46 @@ async def process_worker_price(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(worker_price=price)
-
-    # Получаем все данные из состояния
     data = await state.get_data()
 
     try:
         # Сохраняем задачу в базу данных
-        task_id = create_task({
-            'date_of_destination': data['date_of_destination'],
-            'appointment_time': data['appointment_time'],
-            'type_of_task': data['type_of_task'],
-            'description': data['description'],
-            'main_address': data['main_address'],
-            'additional_address': data['additional_address'],
-            'required_workers': data['required_workers'],
-            'worker_price': data['worker_price']  # Передаем цену из данных состояния
-        })
+        task_id = create_task(data)
 
-        await message.answer(
-            f"✅ Задача успешно создана!\n"
-            f"ID задачи: {task_id}\n"
+        # Формируем сообщение о новой задаче
+        task_message = (
+            f"📌 Новая задача!\n"
             f"Тип: {data['type_of_task']}\n"
             f"Дата: {data['date_of_destination'].strftime('%d.%m.%Y')}\n"
             f"Время: {data['appointment_time'].strftime('%H:%M')}\n"
             f"Адрес: {data['main_address']}\n"
-            f"Доп. адрес: {data['additional_address'] or 'нет'}\n"
             f"Кол-во человек: {data['required_workers']}\n"
-            f"Оплата одному человеку: {data['worker_price']} руб."
+            f"Оплата: {price} руб./чел.\n"
+            f"Описание: {data['description']}"
         )
-        await message.answer("Работаем дальше!",
-                             reply_markup=get_admin_keyboard())
+
+        # Получаем всех активных пользователей
+        user_ids = get_all_users(data['type_of_task'])
+
+        # Рассылаем сообщение всем пользователям
+        for user_id in user_ids:
+            try:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=task_message,
+                    reply_markup=create_task_response_keyboard(task_id)  # Клавиатура для отклика
+                )
+            except Exception as e:
+                print(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
+
+        # Отправляем подтверждение создателю
+        await message.answer(
+            f"✅ Задача #{task_id} успешно создана и отправлена {len(user_ids)} исполнителям!\n"
+            f"{task_message}"
+        )
+
     except Exception as e:
         await message.answer("Произошла ошибка при создании задачи. Попробуйте позже.")
         print(f"Error creating task: {e}")
 
     await state.clear()
-

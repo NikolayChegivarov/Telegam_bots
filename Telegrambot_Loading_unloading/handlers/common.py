@@ -14,6 +14,6 @@ async def cmd_start(message: types.Message):
         await message.answer("Добро пожаловать, Администратор!",
                            reply_markup=get_admin_keyboard())
     else:
-        text="Приветствую вас в боте. Здесь вы сможете получать заказы."
+        text="Приветствую вас в боте. Если вы занимаетесь погрузо-разгузочными работами или доставкой грузов, здесь вы сможете получать заказы."
         await message.answer(text,
                            reply_markup=get_executor_keyboard())

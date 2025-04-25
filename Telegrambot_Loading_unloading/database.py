@@ -106,7 +106,7 @@ def initialize_database():
                 assigned_performers BIGINT[] NULL,                            -- Назначенные исполнители
                 task_status VARCHAR(30) NOT NULL                              -- Статус задачи
                     DEFAULT 'Назначено'
-                    CHECK (task_status IN ('Назначено', 'Работники найдены', 'Завершено', 'Отменено'))
+                    CHECK (task_status IN ('Назначена', 'Работники найдены', 'Завершено', 'Отменено'))
             );
             CREATE TABLE IF NOT EXISTS task_performers (                      -- Связи
                 task_id BIGINT NOT NULL,
@@ -129,7 +129,6 @@ def initialize_database():
             cursor.close()
         if connection:
             connection.close()
-
 
 def create_task(task_data: dict) -> int:
     """
@@ -178,6 +177,113 @@ def create_task(task_data: dict) -> int:
             connection.rollback()
         print(f"Ошибка при создании задачи: {e}")
         raise
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+def get_all_users(task_type: str = None):
+    """
+    Получает список пользователей из базы данных с фильтрацией по роли
+    :param task_type: Тип задачи ('Погрузка' или 'Доставка')
+    :return: Список ID пользователей
+    """
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor()
+
+        query = "SELECT id_users FROM users WHERE status = 'Активный'"
+        params = []
+
+        # Добавляем фильтр по роли в зависимости от типа задачи
+        if task_type == 'Погрузка':
+            query += " AND is_loader = TRUE"
+        elif task_type == 'Доставка':
+            query += " AND is_driver = TRUE"
+
+        cursor.execute(query, params)
+        user_ids = [row[0] for row in cursor.fetchall()]
+        return user_ids
+
+    except Exception as e:
+        print(f"Ошибка при получении пользователей: {e}")
+        return []
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+def get_pending_tasks(user_type: str = None) -> list[dict]:
+    """
+    Получает все задачи со статусом 'Назначена' из базы данных
+    с фильтрацией по типу задачи, если указан тип пользователя
+
+    Параметры:
+        user_type: str - тип пользователя ('loader' или 'driver')
+
+    Возвращает список словарей с информацией о задачах
+    """
+    connection = None
+    cursor = None
+    try:
+        connection = get_connection()
+        cursor = connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        query = """
+            SELECT 
+                id_tasks,
+                assignment_date,
+                assignment_time,
+                task_type,
+                description,
+                main_address,
+                additional_address,
+                required_workers,
+                worker_price,
+                assigned_performers
+            FROM tasks
+            WHERE task_status = 'Назначена'
+            {type_condition}
+            ORDER BY assignment_date, assignment_time
+        """
+
+        type_condition = ""
+        if user_type == "loader":
+            type_condition = "AND task_type = 'Погрузка'"
+        elif user_type == "driver":
+            type_condition = "AND task_type = 'Доставка'"
+
+        query = query.format(type_condition=type_condition)
+
+        cursor.execute(query)
+        tasks = []
+
+        for row in cursor.fetchall():
+            task = {
+                'id': row['id_tasks'],
+                'date': row['assignment_date'],
+                'time': row['assignment_time'],
+                'task_type': row['task_type'],
+                'description': row['description'],
+                'main_address': row['main_address'],
+                'additional_address': row['additional_address'],
+                'required_workers': row['required_workers'],
+                'worker_price': float(row['worker_price']),
+                'assigned_performers': row['assigned_performers'] or [],
+            }
+            tasks.append(task)
+
+        return tasks
+
+    except Exception as e:
+        print(f"Ошибка при получении задач: {e}")
+        return []
     finally:
         if cursor:
             cursor.close()
