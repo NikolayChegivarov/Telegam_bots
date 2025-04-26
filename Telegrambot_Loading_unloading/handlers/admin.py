@@ -17,14 +17,14 @@ router = Router()
 @router.callback_query(F.data.startswith("add_worker_"))
 async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     user_id = int(callback.data.split("_")[2])
+    # Меняем статус работника на Активный.
     change_status_user(user_id)
-
+    # Сообщение добавившему.
     await callback.message.edit_text(
         text=f"{callback.message.text}\n\n✅ Пользователь {user_id} добавлен как работник",
         reply_markup=None
     )
-    await callback.answer("Пользователь добавлен как работник")
-
+    # Сообщение всем админам.
     for admin_id in Config.get_admins():
         try:
             text = f"Пользователя {user_id} принял администратор: {callback.from_user.id}"
@@ -35,6 +35,7 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
             )
         except Exception as e:
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+    # Сообщение работнику.
 
 
 @router.callback_query(F.data.startswith("ignore_"))
