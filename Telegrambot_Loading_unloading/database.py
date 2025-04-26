@@ -136,6 +136,7 @@ def add_user_to_database(user_id):
     try:
         connection = connect_to_database()
         if not connection:
+            print("Не удалось подключиться к базе данных")
             return False
 
         cursor = connection.cursor()
@@ -145,19 +146,66 @@ def add_user_to_database(user_id):
         exists = cursor.fetchone()
 
         if not exists:
-            # Если пользователя нет, добавляем его
+            # Если пользователя нет, добавляем его с явным указанием всех полей
             cursor.execute("""
-                INSERT INTO users (id_user_telegram, first_name, last_name, phone, status)
-                VALUES (%s, '', '', '', 'Активный')
+                INSERT INTO users 
+                (id_user_telegram, first_name, last_name, phone, is_loader, is_driver, 
+                 is_self_employed, inn, status, comment)
+                VALUES 
+                (%s, '', '', '', FALSE, FALSE, FALSE, NULL, 'Заблокированный', NULL)
             """, (user_id,))
 
-            print(f"Пользователь {user_id} добавлен в базу данных. ")
             connection.commit()
+            print(f"Пользователь {user_id} добавлен в базу данных со статусом 'Заблокированный'")
             return True
-        return False
+        else:
+            print(f"Пользователь {user_id} уже существует в базе данных")
+            return False
 
     except Exception as e:
         print(f"Ошибка при добавлении пользователя: {e}")
+        if connection:
+            connection.rollback()
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+def change_status_user(user_id):
+    """Функция для изменения статуса пользователя на 'Активный'"""
+    connection = None
+    cursor = None
+    try:
+        connection = connect_to_database()
+        if not connection:
+            print("Не удалось подключиться к базе данных")
+            return False
+
+        cursor = connection.cursor()
+
+        # Проверяем, существует ли пользователь
+        cursor.execute("SELECT 1 FROM users WHERE id_user_telegram = %s", (user_id,))
+        exists = cursor.fetchone()
+
+        if exists:
+            # Обновляем статус пользователя
+            cursor.execute("""
+                UPDATE users 
+                SET status = 'Активный'
+                WHERE id_user_telegram = %s
+            """, (user_id,))
+
+            connection.commit()
+            print(f"Статус пользователя {user_id} изменен на 'Активный'")
+            return True
+        else:
+            print(f"Пользователь {user_id} не найден в базе данных")
+            return False
+
+    except Exception as e:
+        print(f"Ошибка при изменении статуса пользователя: {e}")
         if connection:
             connection.rollback()
         return False

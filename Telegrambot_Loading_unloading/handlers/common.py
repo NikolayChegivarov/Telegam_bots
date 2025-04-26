@@ -2,7 +2,7 @@ from aiogram import Router, types
 from aiogram.filters import Command
 
 from database import add_user_to_database
-from keyboards.executor_kb import get_executor_keyboard
+from keyboards.executor_kb import executor_authorization_keyboard
 from keyboards.admin_kb import get_admin_keyboard
 from config import Config
 
@@ -17,6 +17,7 @@ async def cmd_start(message: types.Message):
     last_name = user.last_name if user.last_name else "Не указана"
     username = user.username if user.username else "Не указан"
 
+    # Добавляем в бд.
     add_user_to_database(user_id)
 
     if message.from_user.id in Config.ADMINS:
@@ -26,4 +27,4 @@ async def cmd_start(message: types.Message):
     else:
         text="Приветствую вас в боте. Если вы занимаетесь погрузо-разгрузочными работами или доставкой грузов, здесь вы сможете получать заказы."
         await message.answer(text,
-                           reply_markup=get_executor_keyboard())
+                           reply_markup=executor_authorization_keyboard())

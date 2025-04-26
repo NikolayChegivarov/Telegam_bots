@@ -6,9 +6,39 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from keyboards.admin_kb import get_admin_keyboard
 from keyboards.executor_kb import create_task_response_keyboard
 from states import OrderStates
-from database import create_task, get_all_users
+from database import create_task, get_all_users, change_status_user
 
 router = Router()
+
+
+# Обработчики кнопок админов
+@router.callback_query(F.data.startswith("add_worker_"))
+async def add_worker_callback(callback: types.CallbackQuery):
+    user_id = int(callback.data.split("_")[2])
+    change_status_user(user_id)  # Ваша существующая функция
+    await callback.message.edit_text(
+        text=f"{callback.message.text}\n\n✅ Пользователь {user_id} добавлен как работник",
+        reply_markup=None
+    )
+    await callback.answer("Пользователь добавлен как работник")
+    await callback.message.answer(
+        "Добро пожаловать, Администратор!",
+        reply_markup=get_admin_keyboard()
+    )
+
+
+@router.callback_query(F.data.startswith("ignore_"))
+async def ignore_callback(callback: types.CallbackQuery):
+    user_id = int(callback.data.split("_")[1])
+    await callback.message.edit_text(
+        text=f"{callback.message.text}\n\n❌ Заявка от пользователя {user_id} проигнорирована",
+        reply_markup=None
+    )
+    await callback.answer("Заявка проигнорирована")
+    await callback.message.answer(
+        "Добро пожаловать, Администратор!",
+        reply_markup=get_admin_keyboard()
+    )
 
 
 # СОЗДАТЬ ЗАКАЗ

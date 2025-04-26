@@ -1,6 +1,6 @@
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-def get_executor_authorization():
+def executor_authorization_keyboard():
     buttons = [
         [KeyboardButton(text="Хочу работать! 🤝")],
     ]

@@ -4,13 +4,14 @@ from aiogram import Router, types, F, Bot
 
 from config import Config
 from database import get_pending_tasks, get_connection
-from keyboards.executor_kb import get_executor_keyboard
 from aiogram.fsm.context import FSMContext
+
+from keyboards.admin_kb import authorization_keyboard
 
 router = Router()
 
 @router.message(F.text == "Хочу работать! 🤝")
-async def get_executor_authorization(message: types.Message, state: FSMContext, bot: Bot):
+async def get_executor_authorization(message: types.Message, bot: Bot):
     # Получаем информацию о пользователе
     user_id = message.from_user.id
     first_name = message.from_user.first_name or ""
@@ -32,8 +33,10 @@ async def get_executor_authorization(message: types.Message, state: FSMContext, 
         try:
             await bot.send_message(
                 chat_id=admin_id,
-                text=admin_message
+                text=admin_message,
+                reply_markup=authorization_keyboard(user_id)
             )
+            print(f"Отправили сообщение админу {admin_id} ")
         except Exception as e:
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
