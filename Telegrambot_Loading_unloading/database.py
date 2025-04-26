@@ -77,16 +77,16 @@ def initialize_database():
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id_users BIGSERIAL PRIMARY KEY,
+                id_user_telegram BIGINT PRIMARY KEY,
                 first_name VARCHAR(50) NOT NULL,                              -- Имя
                 last_name VARCHAR(50) NOT NULL,                               -- Фамилия
                 phone VARCHAR(20) NOT NULL,                                   -- Телефон
                 is_loader BOOLEAN NOT NULL DEFAULT FALSE,                     -- Грузчик
                 is_driver BOOLEAN NOT NULL DEFAULT FALSE,                     -- Водитель
                 is_self_employed BOOLEAN NOT NULL DEFAULT FALSE,              -- Самозанятый
-                inn VARCHAR(12) NULL,                                   
+                inn VARCHAR(12) NULL,                                         -- ИНН
                 status VARCHAR(20) NOT NULL                                   -- Статус активности
-                    DEFAULT 'Активный'
+                    DEFAULT 'Заблокированный'
                     CHECK (status IN ('Активный', 'Заблокированный')),
                 comment TEXT NULL,                                            -- Комментарий администратора
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP       -- Когда создан
@@ -110,10 +110,10 @@ def initialize_database():
             );
             CREATE TABLE IF NOT EXISTS task_performers (                      -- Связи
                 task_id BIGINT NOT NULL,
-                user_id BIGINT NOT NULL,
-                PRIMARY KEY (task_id, user_id),
+                id_user_telegram BIGINT NOT NULL,
+                PRIMARY KEY (task_id, id_user_telegram),
                 FOREIGN KEY (task_id) REFERENCES tasks(id_tasks) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES users(id_users) ON DELETE CASCADE
+                FOREIGN KEY (id_user_telegram) REFERENCES users(id_user_telegram) ON DELETE CASCADE
             );
         """)
         connection.commit()
@@ -123,6 +123,43 @@ def initialize_database():
         if connection:
             connection.rollback()
         print(f"Ошибка при создании таблицы: {e}")
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+def add_user_to_database(user_id):
+    connection = None
+    cursor = None
+    try:
+        connection = connect_to_database()
+        if not connection:
+            return False
+
+        cursor = connection.cursor()
+
+        # Проверяем, есть ли уже такой пользователь
+        cursor.execute("SELECT 1 FROM users WHERE id_user_telegram = %s", (user_id,))
+        exists = cursor.fetchone()
+
+        if not exists:
+            # Если пользователя нет, добавляем его
+            cursor.execute("""
+                INSERT INTO users (id_user_telegram, first_name, last_name, phone, status)
+                VALUES (%s, '', '', '', 'Активный')
+            """, (user_id,))
+
+            print(f"Пользователь {user_id} добавлен в базу данных. ")
+            connection.commit()
+            return True
+        return False
+
+    except Exception as e:
+        print(f"Ошибка при добавлении пользователя: {e}")
+        if connection:
+            connection.rollback()
         return False
     finally:
         if cursor:
