@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, time
 from aiogram import F, types, Router, Bot
+from aiogram.client import bot
 from aiogram.fsm.context import FSMContext
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
+from config import Config
 from keyboards.admin_kb import get_admin_keyboard
 from keyboards.executor_kb import create_task_response_keyboard
 from states import OrderStates
@@ -13,18 +15,26 @@ router = Router()
 
 # Обработчики кнопок админов
 @router.callback_query(F.data.startswith("add_worker_"))
-async def add_worker_callback(callback: types.CallbackQuery):
+async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     user_id = int(callback.data.split("_")[2])
-    change_status_user(user_id)  # Ваша существующая функция
+    change_status_user(user_id)
+
     await callback.message.edit_text(
         text=f"{callback.message.text}\n\n✅ Пользователь {user_id} добавлен как работник",
         reply_markup=None
     )
     await callback.answer("Пользователь добавлен как работник")
-    await callback.message.answer(
-        "Добро пожаловать, Администратор!",
-        reply_markup=get_admin_keyboard()
-    )
+
+    for admin_id in Config.get_admins():
+        try:
+            text = f"Пользователя {user_id} принял администратор: {callback.from_user.id}"
+            await bot.send_message(
+                chat_id=admin_id,
+                text=text,
+                reply_markup=get_admin_keyboard()
+            )
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
 
 @router.callback_query(F.data.startswith("ignore_"))

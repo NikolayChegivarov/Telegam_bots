@@ -14,7 +14,7 @@ def authorization_keyboard(user_id: int):
     admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Добавить работника",
                                 callback_data=f"add_worker_{user_id}"),
-            InlineKeyboardButton(text="Игнорировать",
+            InlineKeyboardButton(text="Главное меню",
                                 callback_data=f"ignore_{user_id}")]
     ])
     return admin_keyboard
