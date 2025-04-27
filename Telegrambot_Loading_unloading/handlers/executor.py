@@ -3,15 +3,20 @@ from psycopg2 import extras
 from aiogram import Router, types, F, Bot
 
 from config import Config
-from database import get_pending_tasks, get_connection
+from database import get_pending_tasks, get_connection, connect_to_database
 from aiogram.fsm.context import FSMContext
 
 from keyboards.admin_kb import authorization_keyboard
+from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard
+from states import UserRegistration
+from validation import validate_phone, validate_inn
 
 router = Router()
 
-@router.message(F.text == "Хочу работать! 🤝")
+# ЗАПУСКАЕМ ПРОЦЕСС АВТОРИЗАЦИИ.
+@router.message(F.text == "Хочу работать! 👷")
 async def get_executor_authorization(message: types.Message, bot: Bot):
+    print("нажали Хочу работать")
     # Получаем информацию о пользователе
     user_id = message.from_user.id
     first_name = message.from_user.first_name or ""
@@ -42,8 +47,194 @@ async def get_executor_authorization(message: types.Message, bot: Bot):
 
     await message.answer("Ваша заявка отправлена администраторам. Мы свяжемся с вами в ближайшее время!")
 
+# СОБИРАЕМ ДАННЫЕ РАБОТНИКА
+@router.message(F.text == "Начать знакомство 🤝")
+async def start_registration(message: types.Message, state: FSMContext):
+    await state.set_state(UserRegistration.first_name)
+    await message.answer("Введите ваше имя:")
+
+@router.message(UserRegistration.first_name)
+async def process_first_name(message: types.Message, state: FSMContext):
+    await state.update_data(first_name=message.text)
+    await state.set_state(UserRegistration.last_name)
+    await message.answer("Введите вашу фамилию:")
+
+@router.message(UserRegistration.last_name)
+async def process_last_name(message: types.Message, state: FSMContext):
+    await state.update_data(last_name=message.text)
+    await state.set_state(UserRegistration.phone)
+    await message.answer("Введите ваш телефон (например, 79161234567 или +7 916 123 45 67):")
+
+@router.message(UserRegistration.phone)
+async def process_phone(message: types.Message, state: FSMContext):
+    if not validate_phone(message.text):
+        await message.answer("Некорректный формат телефона. Пожалуйста, введите телефон еще раз:")
+        return
+
+    await state.update_data(phone=message.text)
+    await state.set_state(UserRegistration.is_loader)
+    await message.answer("Вы грузчик?", reply_markup=yes_no_keyboard)
+
+@router.message(UserRegistration.is_loader, F.text.in_(["Да", "Нет"]))
+async def process_is_loader(message: types.Message, state: FSMContext):
+    is_loader = message.text == "Да"
+    await state.update_data(is_loader=is_loader)
+    await state.set_state(UserRegistration.is_driver)
+    await message.answer("Вы водитель?", reply_markup=yes_no_keyboard)
+
+@router.message(UserRegistration.is_driver, F.text.in_(["Да", "Нет"]))
+async def process_is_driver(message: types.Message, state: FSMContext):
+    is_driver = message.text == "Да"
+    await state.update_data(is_driver=is_driver)
+    await state.set_state(UserRegistration.is_self_employed)
+    await message.answer("Вы самозанятый?", reply_markup=yes_no_keyboard)
+
+@router.message(UserRegistration.is_self_employed, F.text.in_(["Да", "Нет"]))
+async def process_is_self_employed(message: types.Message, state: FSMContext, bot: Bot):
+    is_self_employed = message.text == "Да"
+    await state.update_data(is_self_employed=is_self_employed)
+
+    if is_self_employed:
+        await state.set_state(UserRegistration.inn)
+        await message.answer("Введите ваш ИНН (10 или 12 цифр):", reply_markup=types.ReplyKeyboardRemove())
+    else:
+        await complete_registration(message, state, bot)
+
+@router.message(UserRegistration.inn)
+async def process_inn(message: types.Message, state: FSMContext, bot: Bot):
+    if not validate_inn(message.text):
+        await message.answer("Некорректный ИНН. Пожалуйста, введите 10 или 12 цифр:")
+        return
+
+    await state.update_data(inn=message.text)
+    await complete_registration(message, state, bot)
+
+async def complete_registration(message: types.Message, state: FSMContext, bot: Bot):
+    user_data = await state.get_data()
+
+    # Получаем данные из состояния
+    first_name = user_data.get('first_name', '')
+    last_name = user_data.get('last_name', '')
+    phone = user_data.get('phone', '')
+    is_loader = user_data.get('is_loader', False)
+    is_driver = user_data.get('is_driver', False)
+    is_self_employed = user_data.get('is_self_employed', False)
+    inn = user_data.get('inn', None)
+    user_id = message.from_user.id
+
+    connection = None
+    cursor = None
+    try:
+        connection = connect_to_database()
+        if not connection:
+            await message.answer("Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
+            return False
+
+        cursor = connection.cursor()
+
+        # Проверяем, существует ли уже пользователь
+        cursor.execute("SELECT 1 FROM users WHERE id_user_telegram = %s", (user_id,))
+        user_exists = cursor.fetchone()
+
+        if user_exists:
+            # Обновляем существующего пользователя
+            cursor.execute("""
+                UPDATE users 
+                SET first_name = %s,
+                    last_name = %s,
+                    phone = %s,
+                    is_loader = %s,
+                    is_driver = %s,
+                    is_self_employed = %s,
+                    inn = %s
+                WHERE id_user_telegram = %s
+            """, (
+                first_name,
+                last_name,
+                phone,
+                is_loader,
+                is_driver,
+                is_self_employed,
+                inn,
+                user_id
+            ))
+        else:
+            # Создаем нового пользователя (хотя по логике он должен уже существовать)
+            cursor.execute("""
+                INSERT INTO users (
+                    id_user_telegram,
+                    first_name,
+                    last_name,
+                    phone,
+                    is_loader,
+                    is_driver,
+                    is_self_employed,
+                    inn
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                user_id,
+                first_name,
+                last_name,
+                phone,
+                is_loader,
+                is_driver,
+                is_self_employed,
+                inn
+            ))
+
+        connection.commit()
+
+        # Формируем текст для администраторов
+        admin_text = (
+            "🆕 Новый работник зарегистрирован:\n"
+            f"👤 ID: {user_id}\n"
+            f"👨‍💼 Имя: {first_name} {last_name}\n"
+            f"📞 Телефон: {phone}\n"
+            f"🏗 Грузчик: {'✅ Да' if is_loader else '❌ Нет'}\n"
+            f"🚚 Водитель: {'✅ Да' if is_driver else '❌ Нет'}\n"
+            f"💼 Самозанятый: {'✅ Да' if is_self_employed else '❌ Нет'}\n"
+            f"{'📝 ИНН: ' + inn if is_self_employed else ''}"
+        )
+
+        # Рассылаем всем админам
+        for admin_id in Config.get_admins():
+            try:
+                await bot.send_message(
+                    chat_id=admin_id,
+                    text=admin_text
+                )
+            except Exception as e:
+                print(f"Не удалось отправить сообщение администратору {admin_id}: {e}")
+
+        # Отправляем сообщение пользователю с клавиатурой главного меню
+        await message.answer(
+            "✅ Регистрация завершена!\n"
+            f"👤 Ваше имя: {first_name} {last_name}\n"
+            f"📞 Ваш телефон: {phone}\n"
+            f"🏗 Грузчик: {'✅ Да' if is_loader else '❌ Нет'}\n"
+            f"🚚 Водитель: {'✅ Да' if is_driver else '❌ Нет'}\n"
+            f"💼 Самозанятый: {'✅ Да' if is_self_employed else '❌ Нет'}\n"
+            f"{'📝 Ваш ИНН: ' + inn if is_self_employed else ''}\n\n"
+            "Теперь вам доступны все функции бота!",
+            reply_markup=get_executor_keyboard()
+        )
+
+        return True
+
+    except Exception as e:
+        await message.answer(f"Произошла ошибка при сохранении данных: {str(e)}")
+        if connection:
+            connection.rollback()
+        return False
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+        await state.clear()
 
 
+# ПРЕДОСТАВЛЯЕМ ЗАДАЧИ
 @router.message(F.text == "Список активных задач 📋")
 async def all_order_executor(message: types.Message, state: FSMContext):
     user_id = message.from_user.id

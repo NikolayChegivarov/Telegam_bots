@@ -140,13 +140,10 @@ def add_user_to_database(user_id):
             return False
 
         cursor = connection.cursor()
-
-        # Проверяем, есть ли уже такой пользователь
         cursor.execute("SELECT 1 FROM users WHERE id_user_telegram = %s", (user_id,))
         exists = cursor.fetchone()
 
         if not exists:
-            # Если пользователя нет, добавляем его с явным указанием всех полей
             cursor.execute("""
                 INSERT INTO users 
                 (id_user_telegram, first_name, last_name, phone, is_loader, is_driver, 
@@ -154,13 +151,11 @@ def add_user_to_database(user_id):
                 VALUES 
                 (%s, '', '', '', FALSE, FALSE, FALSE, NULL, 'Заблокированный', NULL)
             """, (user_id,))
-
             connection.commit()
-            print(f"Пользователь {user_id} добавлен в базу данных со статусом 'Заблокированный'")
+            print(f"Пользователь {user_id} добавлен в базу данных")
             return True
-        else:
-            print(f"Пользователь {user_id} уже существует в базе данных")
-            return False
+        print(f"Пользователь {user_id} уже существует")
+        return False
 
     except Exception as e:
         print(f"Ошибка при добавлении пользователя: {e}")

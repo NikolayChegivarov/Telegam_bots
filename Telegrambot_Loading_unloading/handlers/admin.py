@@ -6,7 +6,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from config import Config
 from keyboards.admin_kb import get_admin_keyboard
-from keyboards.executor_kb import create_task_response_keyboard, get_executor_keyboard
+from keyboards.executor_kb import create_task_response_keyboard, acquaintance_keyboard
 from states import OrderStates
 from database import create_task, get_all_users, change_status_user
 
@@ -38,13 +38,14 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     # Сообщение работнику.
     try:
         worker_message = (
+            "Вас добавили. Поработаем! 💪"
             "Чат-бот поможет вам эффективно работать с заявками "
-            "и своевременно получать оплаты. Пожалуйста, ознакомьтесь с инструкцией."
+            "и своевременно получать оплаты. Для начала давайте познакомимся."
         )
         await bot.send_message(
             chat_id=user_id,
             text=worker_message,
-            reply_markup=get_executor_keyboard()
+            reply_markup=acquaintance_keyboard()
         )
     except Exception as e:
         print(f"Не удалось отправить сообщение работнику {user_id}: {e}")
