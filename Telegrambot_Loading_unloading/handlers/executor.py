@@ -246,7 +246,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
         connection = get_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-        cursor.execute("SELECT is_loader, is_driver FROM users WHERE id_users = %s", (user_id,))
+        cursor.execute("SELECT is_loader, is_driver FROM users WHERE id_user_telegram = %s", (user_id,))
         user_data = cursor.fetchone()
 
         if not user_data:

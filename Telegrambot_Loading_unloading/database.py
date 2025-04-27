@@ -276,7 +276,7 @@ def get_all_users(task_type: str = None):
         connection = get_connection()
         cursor = connection.cursor()
 
-        query = "SELECT id_users FROM users WHERE status = 'Активный'"
+        query = "SELECT id_user_telegram FROM users WHERE status = 'Активный'"
         params = []
 
         # Добавляем фильтр по роли в зависимости от типа задачи

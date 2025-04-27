@@ -13,7 +13,7 @@ from database import create_task, get_all_users, change_status_user
 router = Router()
 
 
-# Обработчики кнопок админов
+# ОБРАБОТКА АВТОРИЗАЦИИ РАБОТНИКА
 @router.callback_query(F.data.startswith("add_worker_"))
 async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     user_id = int(callback.data.split("_")[2])
@@ -54,7 +54,6 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
                 chat_id=admin_id,
                 text=f"⚠ Не удалось отправить приветствие работнику {user_id}"
             )
-
 
 @router.callback_query(F.data.startswith("ignore_"))
 async def ignore_callback(callback: types.CallbackQuery):
@@ -118,15 +117,17 @@ async def process_date(message: types.Message, state: FSMContext):
         await message.answer("Пожалуйста, введите дату в формате ДД.ММ.ГГГГ")
         return
 
-    # Создаем клавиатуру с временными интервалами и кнопкой ручного ввода
+    # Создаем клавиатуру с временными интервалами
     builder = ReplyKeyboardBuilder()
-    for hour in range(8, 20, 1):  # С 8 утра до 8 вечера с шагом 2 часа
+    for hour in range(8, 20, 1):  # С 8 утра до 8 вечера с шагом 1 час
         time_str = f"{hour:02d}:00"
         builder.add(types.KeyboardButton(text=time_str))
 
-    # Добавляем кнопку ручного ввода
-    builder.add(types.KeyboardButton(text="Указать вручную"))
-    builder.adjust(3, 1)  # 3 кнопки в ряду, затем "Указать вручную" отдельно
+    # Применяем adjust только к кнопкам времени (12 кнопок)
+    builder.adjust(3)  # 3 кнопки в каждом ряду
+
+    # Добавляем кнопку ручного ввода отдельно
+    builder.row(types.KeyboardButton(text="Указать вручную"))
 
     await message.answer(
         "Выберите время назначения:",
