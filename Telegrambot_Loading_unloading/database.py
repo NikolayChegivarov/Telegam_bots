@@ -105,14 +105,14 @@ def initialize_database():
                 worker_price NUMERIC(10, 2) NOT NULL,                         -- Цена за работу
                 assigned_performers BIGINT[] NULL,                            -- Назначенные исполнители
                 task_status VARCHAR(30) NOT NULL                              -- Статус задачи
-                    DEFAULT 'Назначено'
+                    DEFAULT 'Назначена'
                     CHECK (task_status IN ('Назначена', 'Работники найдены', 'Завершено', 'Отменено'))
             );
             CREATE TABLE IF NOT EXISTS task_performers (                      -- Связи
                 task_id BIGINT NOT NULL,
                 id_user_telegram BIGINT NOT NULL,
-                PRIMARY KEY (task_id, id_user_telegram),
-                FOREIGN KEY (task_id) REFERENCES tasks(id_tasks) ON DELETE CASCADE,
+                PRIMARY KEY (task_id, id_user_telegram),                      -- одна и та же комбинация задачи и пользователя не может повторяться
+                FOREIGN KEY (task_id) REFERENCES tasks(id_tasks) ON DELETE CASCADE,  -- Если удаляется задача или пользователь, все связанные записи в этой таблице автоматически удаляются.
                 FOREIGN KEY (id_user_telegram) REFERENCES users(id_user_telegram) ON DELETE CASCADE
             );
         """)
@@ -246,7 +246,7 @@ def create_task(task_data: dict) -> int:
             task_data['additional_address'],
             task_data['required_workers'],
             task_data['worker_price'],  # Используем переданную цену
-            'Назначено'
+            'Назначена'
         ))
 
         task_id = cursor.fetchone()[0]

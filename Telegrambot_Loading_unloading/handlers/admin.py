@@ -120,7 +120,7 @@ async def process_date(message: types.Message, state: FSMContext):
 
     # Создаем клавиатуру с временными интервалами и кнопкой ручного ввода
     builder = ReplyKeyboardBuilder()
-    for hour in range(8, 20, 2):  # С 8 утра до 8 вечера с шагом 2 часа
+    for hour in range(8, 20, 1):  # С 8 утра до 8 вечера с шагом 2 часа
         time_str = f"{hour:02d}:00"
         builder.add(types.KeyboardButton(text=time_str))
 
