@@ -131,6 +131,7 @@ def initialize_database():
             connection.close()
 
 def add_user_to_database(user_id):
+    """Добавляет пользователя бд"""
     connection = None
     cursor = None
     try:

@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timedelta, time
 from aiogram import F, types, Router, Bot
 from aiogram.client import bot
@@ -12,6 +13,15 @@ from database import create_task, get_all_users, change_status_user
 
 router = Router()
 
+async def send_temp_message(
+    bot: Bot,
+    chat_id: int,
+    text: str,
+    delete_after: int = 5  # Через сколько секунд удалить
+):
+    msg = await bot.send_message(chat_id, text)
+    await asyncio.sleep(delete_after)
+    await bot.delete_message(chat_id, msg.message_id)
 
 # ОБРАБОТКА АВТОРИЗАЦИИ РАБОТНИКА
 @router.callback_query(F.data.startswith("add_worker_"))
@@ -28,11 +38,8 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     for admin_id in Config.get_admins():
         try:
             text = f"Пользователя {user_id} принял администратор: {callback.from_user.id}"
-            await bot.send_message(
-                chat_id=admin_id,
-                text=text,
-                reply_markup=get_admin_keyboard()
-            )
+            if admin_id != callback.from_user.id:  # Не уведомляем себя
+                await send_temp_message(bot, admin_id, text, delete_after=5)
         except Exception as e:
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
     # Сообщение работнику.
@@ -264,7 +271,8 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
             f"Описание: {data['description']}"
         )
 
-        # Получаем всех активных пользователей
+        # Получаем всех активных пользователей связанных с текущим видом задачи.
+        # Водителей или грузчиков.
         user_ids = get_all_users(data['type_of_task'])
 
         # Рассылаем сообщение всем пользователям
