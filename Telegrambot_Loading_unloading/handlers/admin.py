@@ -24,17 +24,26 @@ async def send_temp_message(
     await asyncio.sleep(delete_after)
     await bot.delete_message(chat_id, msg.message_id)
 
-# ОБРАБОТКА АВТОРИЗАЦИИ РАБОТНИКА
+
 @router.callback_query(F.data.startswith("add_worker_"))
 async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     user_id = int(callback.data.split("_")[2])
     # Меняем статус работника на Активный.
     change_status_user(user_id)
+
     # Сообщение добавившему админу.
     await callback.message.edit_text(
         text=f"{callback.message.text}\n\n✅ Пользователь {user_id} добавлен как работник",
         reply_markup=None
     )
+
+    # Отправляем администратору главное меню
+    await bot.send_message(
+        chat_id=callback.from_user.id,
+        text="Главное меню администратора",
+        reply_markup=get_admin_keyboard()
+    )
+
     # Сообщение всем админам.
     for admin_id in Config.get_admins():
         try:
@@ -43,10 +52,11 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
                 await send_temp_message(bot, admin_id, text, delete_after=5)
         except Exception as e:
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+
     # Сообщение работнику.
     try:
         worker_message = (
-            "Вас добавили. Поработаем! 💪"
+            "Вас добавили. Поработаем! 💪 "
             "Чат-бот поможет вам эффективно работать с заявками "
             "и своевременно получать оплаты. Для начала давайте познакомимся."
         )
