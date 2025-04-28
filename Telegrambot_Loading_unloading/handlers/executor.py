@@ -262,7 +262,6 @@ async def all_order_executor(message: types.Message, state: FSMContext):
             user_type = "loader"
         elif is_driver and not is_loader:
             user_type = "driver"
-        # Если пользователь и грузчик и водитель, показываем все задачи
 
         # Получаем задачи с учетом типа пользователя
         tasks = get_pending_tasks(user_type)
@@ -275,6 +274,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
         response = []
         for task in tasks:
             task_info = (
+                f"🆔 Номер задачи: {task['id_tasks']}\n"
                 f"🔹 Тип: {task['task_type']}\n"
                 f"📅 Дата: {task['date']}\n"
                 f"⏰ Время: {task['time']}\n"
@@ -293,7 +293,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
         await message.answer("Активные задачи:\n\n" + "\n\n".join(response))
 
     except Exception as e:
-        await message.answer(f"Произошла ошибка: {e}")
+        await message.answer(f"Произошла ошибка: {str(e)}")
     finally:
         if cursor is not None:
             cursor.close()
@@ -319,4 +319,5 @@ async def get_a_task(message: types.Message, state: FSMContext):
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
 async def create_order(message: types.Message, state: FSMContext):
-    pass
+    user_id = message.from_user.id
+

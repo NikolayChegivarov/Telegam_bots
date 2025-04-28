@@ -188,7 +188,7 @@ def status_verification(user_id):
         connection.close()
 
 def checking_your_personal_account(user_id):
-    # Проверка на заполненность Личного кабинета.
+    """Проверка на заполненность личного кабинета."""
     connection = connect_to_database()
     if not connection:
         return False
@@ -370,8 +370,8 @@ def get_pending_tasks(user_type: str = None) -> list[dict]:
         query = """
             SELECT 
                 id_tasks,
-                assignment_date,
-                assignment_time,
+                assignment_date as date,
+                assignment_time as time,
                 task_type,
                 description,
                 main_address,
@@ -398,9 +398,9 @@ def get_pending_tasks(user_type: str = None) -> list[dict]:
 
         for row in cursor.fetchall():
             task = {
-                'id': row['id_tasks'],
-                'date': row['assignment_date'],
-                'time': row['assignment_time'],
+                'id_tasks': row['id_tasks'],
+                'date': row['date'],
+                'time': row['time'],
                 'task_type': row['task_type'],
                 'description': row['description'],
                 'main_address': row['main_address'],
