@@ -1,3 +1,5 @@
+import asyncio
+
 import psycopg2
 from psycopg2 import extras
 from aiogram import Router, types, F, Bot
@@ -7,7 +9,7 @@ from database import get_pending_tasks, get_connection, connect_to_database, add
 from aiogram.fsm.context import FSMContext
 
 from keyboards.admin_kb import authorization_keyboard
-from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard
+from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard, personal_office_keyboard
 from states import UserRegistration, TaskNumber
 from validation import validate_phone, validate_inn
 
@@ -317,7 +319,25 @@ async def get_a_task(message: types.Message, state: FSMContext):
         reply_markup = get_executor_keyboard(),  # Клава
     )
 
+
 @router.message(F.text == "Личный кабинет 👨‍💻")
-async def create_order(message: types.Message, state: FSMContext):
-    user_id = message.from_user.id
+async def personal_office(message: types.Message, state: FSMContext):
+    # Отправляем клавиатуру с минимальным текстом
+    await message.answer(
+        text="Выберите необходимые опции.",  # Точка, но можно заменить на невидимый символ (например, `\u200B`)
+        reply_markup=personal_office_keyboard()
+    )
+
+@router.message(F.text == "Мои заявки 🤝")
+async def personal_office(message: types.Message, state: FSMContext):
+    pass
+
+
+@router.message(F.text == "Основное меню")
+async def basic_menu(message: types.Message, state: FSMContext):
+    pass
+
+
+
+
 

@@ -34,7 +34,9 @@ def personal_office_keyboard():
         [KeyboardButton(text="Мои данные 📑")],
         [KeyboardButton(text="Моя статистика заявок 📊")],
         [KeyboardButton(text="Поддержка ❓")],
+        [KeyboardButton(text="Основное меню")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
 
 
