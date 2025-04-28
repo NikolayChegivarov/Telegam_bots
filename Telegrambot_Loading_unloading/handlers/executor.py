@@ -3,12 +3,12 @@ from psycopg2 import extras
 from aiogram import Router, types, F, Bot
 
 from config import Config
-from database import get_pending_tasks, get_connection, connect_to_database
+from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers
 from aiogram.fsm.context import FSMContext
 
 from keyboards.admin_kb import authorization_keyboard
 from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard
-from states import UserRegistration
+from states import UserRegistration, TaskNumber
 from validation import validate_phone, validate_inn
 
 router = Router()
@@ -300,9 +300,22 @@ async def all_order_executor(message: types.Message, state: FSMContext):
         if connection is not None:
             connection.close()
 
+# ВЗЯТЬ ЗАДАЧУ
 @router.message(F.text == "Взять задачу ➡️")
-async def create_order(message: types.Message, state: FSMContext):
-    pass
+async def take_the_task(message: types.Message, state: FSMContext):
+    await state.set_state(TaskNumber.waiting_task_number)
+    await message.answer("Введите номер задачи которую хотите взять:")
+
+@router.message(TaskNumber.waiting_task_number)
+async def get_a_task(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    id_tasks=message.text
+    status = add_to_assigned_performers(user_id, id_tasks)
+    print(f"status {status}")
+    await message.answer(
+        text=status,
+        reply_markup = get_executor_keyboard(),  # Клава
+    )
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
 async def create_order(message: types.Message, state: FSMContext):

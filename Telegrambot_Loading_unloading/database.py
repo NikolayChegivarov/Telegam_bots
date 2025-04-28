@@ -101,7 +101,7 @@ def initialize_database():
                 description TEXT NOT NULL,                                    -- Описание
                 main_address VARCHAR(200) NOT NULL,                           -- Адрес основной
                 additional_address VARCHAR(200) NULL,                         -- Адрес дополнительный
-                required_workers INT NOT NULL,                                -- Количество работников
+                required_workers INT NOT NULL,                                -- Количество необходимых работников
                 worker_price NUMERIC(10, 2) NOT NULL,                         -- Цена за работу
                 assigned_performers BIGINT[] NULL,                            -- Назначенные исполнители
                 task_status VARCHAR(30) NOT NULL                              -- Статус задачи
@@ -419,5 +419,86 @@ def get_pending_tasks(user_type: str = None) -> list[dict]:
     finally:
         if cursor:
             cursor.close()
+        if connection:
+            connection.close()
+
+
+def add_to_assigned_performers(user_id, id_tasks):
+    """Добавляет id_user_telegram работника в список assigned_performers определённой задачи"""
+    connection = connect_to_database()
+    if not connection:
+        return False
+
+    try:
+        cursor = connection.cursor()
+
+        # Проверяем существование задачи
+        cursor.execute("SELECT id_tasks FROM tasks WHERE id_tasks = %s", (id_tasks,))
+        if not cursor.fetchone():
+            return "Задача не найдена"
+
+        # Получаем данные задачи
+        cursor.execute("""
+            SELECT task_status, required_workers, assigned_performers, 
+                   assignment_date, assignment_time, main_address 
+            FROM tasks 
+            WHERE id_tasks = %s
+        """, (id_tasks,))
+        task_data = cursor.fetchone()
+
+        task_status = task_data[0]
+
+        # Проверяем статус задачи
+        if task_status == 'Завершено':
+            return "Задача уже завершена"
+        elif task_status == 'Отменено':
+            return "Задача отменена"
+        elif task_status == 'Работники найдены':
+            return "Исполнители для задачи уже найдены"
+        elif task_status != 'Назначена':
+            return "Невозможно взять задачу: неожиданный статус"
+
+        # Обрабатываем случай, когда статус 'Назначена'
+        required_workers = task_data[1]
+        assigned_performers = task_data[2] if task_data[2] else []
+        remaining_slots = required_workers - len(assigned_performers)
+
+        if remaining_slots <= 0:
+            return f"Исполнители на задачу {id_tasks} уже найдены"
+
+        # Добавляем пользователя в список исполнителей
+        assigned_performers.append(user_id)
+        cursor.execute("""
+            UPDATE tasks 
+            SET assigned_performers = %s 
+            WHERE id_tasks = %s
+        """, (assigned_performers, id_tasks))
+
+        # Добавляем запись в таблицу связей
+        cursor.execute("""
+            INSERT INTO task_performers (task_id, id_user_telegram)
+            VALUES (%s, %s)
+        """, (id_tasks, user_id))
+
+        # Проверяем, заполнены ли все места
+        if remaining_slots == 1:
+            cursor.execute("""
+                UPDATE tasks 
+                SET task_status = 'Работники найдены' 
+                WHERE id_tasks = %s
+            """, (id_tasks,))
+
+        # Фиксируем изменения в базе данных
+        connection.commit()
+
+        return (f"Вы взяли задачу {id_tasks}. Просьба прибыть без опозданий "
+                f"{task_data[3]} к {task_data[4]} по адресу {task_data[5]}")
+
+    except Exception as e:
+        # В случае ошибки откатываем изменения
+        connection.rollback()
+        return f"Произошла ошибка: {str(e)}"
+    finally:
+        # Закрываем соединение в любом случае
         if connection:
             connection.close()

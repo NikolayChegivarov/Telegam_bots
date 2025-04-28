@@ -1,6 +1,7 @@
 from aiogram.fsm.state import State, StatesGroup
 
 # ADMIN
+# Ставим задачу
 class OrderStates(StatesGroup):
     waiting_type_of_task = State()  # Тип задачи
     waiting_date_of_destination = State()  # Дата назначения
@@ -12,7 +13,8 @@ class OrderStates(StatesGroup):
     waiting_required_workers = State()  # Количество человек
     waiting_worker_price = State()  # Цена
 
-# worker
+# РАБОТНИК
+# Собираем данные
 class UserRegistration(StatesGroup):
     first_name = State()
     last_name = State()
@@ -22,7 +24,6 @@ class UserRegistration(StatesGroup):
     is_self_employed = State()
     inn = State()
 
-
-    waiting_for_new_amount = State()  # Ожидание новой стоимости
-    waiting_for_payment_status = State()  # Ожидание статуса оплаты
-    waiting_for_status_order_id = State()   # Состояние ожидания № заказа для получения статуса
+# Берем задачу
+class TaskNumber(StatesGroup):
+    waiting_task_number = State()  # Ожидание номера задачи
