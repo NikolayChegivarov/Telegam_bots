@@ -9,7 +9,7 @@ from config import Config
 from keyboards.admin_kb import get_admin_keyboard
 from keyboards.executor_kb import create_task_response_keyboard, acquaintance_keyboard
 from states import OrderStates
-from database import create_task, get_all_users, change_status_user
+from database import create_task, change_status_user, get_all_users_type
 
 router = Router()
 
@@ -19,6 +19,7 @@ async def send_temp_message(
     text: str,
     delete_after: int = 5  # Через сколько секунд удалить
 ):
+    """Сообщение, которое исчезает. """
     msg = await bot.send_message(chat_id, text)
     await asyncio.sleep(delete_after)
     await bot.delete_message(chat_id, msg.message_id)
@@ -29,7 +30,7 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     user_id = int(callback.data.split("_")[2])
     # Меняем статус работника на Активный.
     change_status_user(user_id)
-    # Сообщение добавившему.
+    # Сообщение добавившему админу.
     await callback.message.edit_text(
         text=f"{callback.message.text}\n\n✅ Пользователь {user_id} добавлен как работник",
         reply_markup=None
@@ -258,42 +259,51 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
     try:
         # Сохраняем задачу в базу данных
         task_id = create_task(data)
-
-        # Формируем сообщение о новой задаче
-        task_message = (
-            f"📌 Новая задача!\n"
-            f"Тип: {data['type_of_task']}\n"
-            f"Дата: {data['date_of_destination'].strftime('%d.%m.%Y')}\n"
-            f"Время: {data['appointment_time'].strftime('%H:%M')}\n"
-            f"Адрес: {data['main_address']}\n"
-            f"Кол-во человек: {data['required_workers']}\n"
-            f"Оплата: {price} руб./чел.\n"
-            f"Описание: {data['description']}"
-        )
-
-        # Получаем всех активных пользователей связанных с текущим видом задачи.
-        # Водителей или грузчиков.
-        user_ids = get_all_users(data['type_of_task'])
-
-        # Рассылаем сообщение всем пользователям
-        for user_id in user_ids:
-            try:
-                await bot.send_message(
-                    chat_id=user_id,
-                    text=task_message,
-                    reply_markup=create_task_response_keyboard(task_id)  # Клавиатура для отклика
-                )
-            except Exception as e:
-                print(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
-
-        # Отправляем подтверждение создателю
-        await message.answer(
-            f"✅ Задача #{task_id} успешно создана и отправлена {len(user_ids)} исполнителям!\n"
-            f"{task_message}"
-        )
-
     except Exception as e:
         await message.answer("Произошла ошибка при создании задачи. Попробуйте позже.")
         print(f"Error creating task: {e}")
+
+    # Формируем сообщение о новой задаче
+    task_message = (
+        f"📌 Новая задача!\n"
+        f"Тип: {data['type_of_task']}\n"
+        f"Дата: {data['date_of_destination'].strftime('%d.%m.%Y')}\n"
+        f"Время: {data['appointment_time'].strftime('%H:%M')}\n"
+        f"Адрес: {data['main_address']}\n"
+        f"Кол-во человек: {data['required_workers']}\n"
+        f"Оплата: {price} руб./чел.\n"
+        f"Описание: {data['description']}"
+    )
+
+    # Получаем всех активных пользователей связанных с текущим видом задачи.
+    # Водителей или грузчиков.
+    user_ids = get_all_users_type(data['type_of_task'])
+    print(f"Список исполнителей: ")
+
+    # Рассылаем сообщение всем пользователям
+    for user_id in user_ids:
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text=task_message,
+                reply_markup=create_task_response_keyboard(task_id)  # Клавиатура для отклика
+            )
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
+
+    # Отправляем подтверждение создателю
+    await message.answer(
+        f"✅ Задача #{task_id} успешно создана и отправлена {len(user_ids)} исполнителям!\n"
+        f"{task_message}"
+    )
+
+    # Отправляем исчезающее сообщение всем администраторам.
+    for admin_id in Config.get_admins():
+        try:
+            text = f"Пользователя {user_id} принял администратор: {message.from_user.id}"
+            if admin_id != message.from_user.id:  # Не уведомляем себя
+                await send_temp_message(bot, admin_id, text, delete_after=5)
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
     await state.clear()

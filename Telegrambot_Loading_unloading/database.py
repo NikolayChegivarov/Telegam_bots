@@ -265,7 +265,7 @@ def create_task(task_data: dict) -> int:
             connection.close()
 
 
-def get_all_users(task_type: str = None):
+def get_all_users_type(task_type: str = None):
     """
     Получает список пользователей из базы данных с фильтрацией по роли
     :param task_type: Тип задачи ('Погрузка' или 'Доставка')
@@ -277,7 +277,11 @@ def get_all_users(task_type: str = None):
         connection = get_connection()
         cursor = connection.cursor()
 
-        query = "SELECT id_user_telegram FROM users WHERE status = 'Активный'"
+        query = """
+            SELECT id_user_telegram 
+            FROM users 
+            WHERE status = 'Активный'
+        """
         params = []
 
         # Добавляем фильтр по роли в зависимости от типа задачи
@@ -285,6 +289,9 @@ def get_all_users(task_type: str = None):
             query += " AND is_loader = TRUE"
         elif task_type == 'Доставка':
             query += " AND is_driver = TRUE"
+        else:
+            # Если тип задачи не указан или не распознан, возвращаем всех активных пользователей
+            pass
 
         cursor.execute(query, params)
         user_ids = [row[0] for row in cursor.fetchall()]
