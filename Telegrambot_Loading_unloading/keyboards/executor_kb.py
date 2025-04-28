@@ -37,6 +37,3 @@ def personal_office_keyboard():
         [KeyboardButton(text="Основное меню")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
-
-
-

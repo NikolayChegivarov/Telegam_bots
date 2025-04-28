@@ -1,6 +1,8 @@
 import psycopg2
 from psycopg2 import sql
+from psycopg2.extras import DictCursor
 import os
+
 
 from config import Config
 
@@ -502,3 +504,57 @@ def add_to_assigned_performers(user_id, id_tasks):
         # Закрываем соединение в любом случае
         if connection:
             connection.close()
+
+
+def get_user_tasks(user_id):
+    """
+    Возвращает список задач, в которых участвует пользователь со статусом 'Назначена' или 'Работники найдены'
+
+    :param user_id: id пользователя в Telegram
+    :return: строка с информацией о задачах или сообщение об их отсутствии
+    """
+    try:
+        with get_connection() as conn:  # Автоматическое управление соединением
+            with conn.cursor(cursor_factory=DictCursor) as cursor:  # Используем DictCursor для получения словарей
+                # Получаем все активные задачи, где пользователь является исполнителем
+                cursor.execute("""
+                    SELECT t.* 
+                    FROM tasks t
+                    JOIN task_performers tp ON t.id_tasks = tp.task_id
+                    WHERE tp.id_user_telegram = %s
+                    AND t.task_status IN ('Назначена', 'Работники найдены')
+                    ORDER BY t.assignment_date, t.assignment_time
+                """, (user_id,))
+
+                tasks = cursor.fetchall()
+
+                if not tasks:
+                    return "Открытых заявок с вашим участием нет"
+
+                result = []
+                for task in tasks:
+                    task_info = (
+                        f"🆔 Номер задачи: {task['id_tasks']}\n"
+                        f"🔹 Тип: {task['task_type']}\n"
+                        f"📅 Дата: {task['assignment_date']}\n"
+                        f"⏰ Время: {task['assignment_time']}\n"
+                        f"📍 Адрес: {task['main_address']}"
+                    )
+
+                    if task['additional_address']:
+                        task_info += f" ({task['additional_address']})"
+
+                    task_info += (
+                        f"\n📝 Описание: {task['description']}\n"
+                        f"👷 Требуется работников: {task['required_workers']}\n"
+                        f"💰 Цена за работу: {task['worker_price']} руб.\n"
+                        f"────────────────────"
+                    )
+
+                    result.append(task_info)
+
+                return "\n\n".join(result)
+
+    except Exception as e:
+        print(f"Ошибка при получении задач пользователя: {e}")
+        return "Произошла ошибка при получении данных о задачах"
