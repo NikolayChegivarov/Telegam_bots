@@ -169,8 +169,52 @@ def add_user_to_database(user_id):
         if connection:
             connection.close()
 
+
+def status_verification(user_id):
+    """Проверка пользователя на статус 'Активный'"""
+    connection = connect_to_database()
+    if not connection:
+        return False
+    cursor = connection.cursor()
+    try:
+        cursor.execute("SELECT status FROM users WHERE id_user_telegram = %s", (user_id,))
+        result = cursor.fetchone()
+        return result and result[0] == "Активный"
+    except Exception as e:
+        print(f"Ошибка при проверке статуса: {e}")
+        return False
+    finally:
+        cursor.close()
+        connection.close()
+
+def checking_your_personal_account(user_id):
+    # Проверка на заполненность Личного кабинета.
+    connection = connect_to_database()
+    if not connection:
+        return False
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT first_name, last_name, phone 
+                FROM users 
+                WHERE id_user_telegram = %s
+            """, (user_id,))
+
+            user_data = cursor.fetchone()
+
+            if user_data:
+                first_name, last_name, phone = user_data
+                if first_name and last_name and phone:
+                    return True
+            return False
+    finally:
+        if connection:
+            connection.close()
+
+
 def change_status_user(user_id):
-    """Функция для изменения статуса пользователя на 'Активный'"""
+    """Функция администратора, для изменения статуса пользователя на 'Активный'"""
     connection = None
     cursor = None
     try:

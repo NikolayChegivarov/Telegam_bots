@@ -27,6 +27,8 @@ async def send_temp_message(
 
 @router.callback_query(F.data.startswith("add_worker_"))
 async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
+    await callback.answer()  # Это уберет индикатор загрузки
+
     user_id = int(callback.data.split("_")[2])
     # Меняем статус работника на Активный.
     change_status_user(user_id)
@@ -37,6 +39,7 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
         reply_markup=None
     )
 
+    # Остальной код остается без изменений...
     # Отправляем администратору главное меню
     await bot.send_message(
         chat_id=callback.from_user.id,
@@ -275,14 +278,14 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
 
     # Формируем сообщение о новой задаче
     task_message = (
-        f"📌 Новая задача!\n"
-        f"Тип: {data['type_of_task']}\n"
-        f"Дата: {data['date_of_destination'].strftime('%d.%m.%Y')}\n"
-        f"Время: {data['appointment_time'].strftime('%H:%M')}\n"
-        f"Адрес: {data['main_address']}\n"
-        f"Кол-во человек: {data['required_workers']}\n"
-        f"Оплата: {price} руб./чел.\n"
-        f"Описание: {data['description']}"
+        f"📌 Новая задача № {data['id_tasks']}!\n"
+        f"👷🚛Тип: {data['type_of_task']}\n"
+        f"📅 Дата: {data['date_of_destination'].strftime('%d.%m.%Y')}\n"
+        f"🕒 Время: {data['appointment_time'].strftime('%H:%M')}\n"
+        f"🏠 Адрес: {data['main_address']}\n"
+        f"👥 Кол-во человек: {data['required_workers']}\n"
+        f"💸 Оплата: {price} руб./чел.\n"
+        f"📄 Описание: {data['description']}"
     )
 
     # Получаем всех активных пользователей связанных с текущим видом задачи.
