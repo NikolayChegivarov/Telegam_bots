@@ -24,7 +24,7 @@ async def send_temp_message(
     await asyncio.sleep(delete_after)
     await bot.delete_message(chat_id, msg.message_id)
 
-
+# АВТОРИЗАЦИЯ РАБОТНИКА
 @router.callback_query(F.data.startswith("add_worker_"))
 async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     await callback.answer()  # Это уберет индикатор загрузки
@@ -33,28 +33,21 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
     # Меняем статус работника на Активный.
     change_status_user(user_id)
 
-    # Сообщение добавившему админу.
-    await callback.message.edit_text(
-        text=f"{callback.message.text}\n\n✅ Пользователь {user_id} добавлен как работник",
-        reply_markup=None
-    )
+    # Отправляем исчезающее сообщение всем администраторам.
+    for admin_id in Config.get_admins():
+        try:
+            text = f"Пользователя {user_id} принял администратор: {callback.from_user.id}"
+            # if admin_id != callback.from_user.id:  # Не уведомляем себя
+            await send_temp_message(bot, admin_id, text, delete_after=5)
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
-    # Остальной код остается без изменений...
-    # Отправляем администратору главное меню
+    # Отправляем одобрившему администратору главное меню
     await bot.send_message(
         chat_id=callback.from_user.id,
         text="Главное меню администратора",
         reply_markup=get_admin_keyboard()
     )
-
-    # Сообщение всем админам.
-    for admin_id in Config.get_admins():
-        try:
-            text = f"Пользователя {user_id} принял администратор: {callback.from_user.id}"
-            if admin_id != callback.from_user.id:  # Не уведомляем себя
-                await send_temp_message(bot, admin_id, text, delete_after=5)
-        except Exception as e:
-            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
     # Сообщение работнику.
     try:
@@ -308,14 +301,5 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
         f"✅ Задача #{task_id} успешно создана и отправлена {len(user_ids)} исполнителям!\n"
         f"{task_message}"
     )
-
-    # Отправляем исчезающее сообщение всем администраторам.
-    for admin_id in Config.get_admins():
-        try:
-            text = f"Пользователя {user_id} принял администратор: {message.from_user.id}"
-            if admin_id != message.from_user.id:  # Не уведомляем себя
-                await send_temp_message(bot, admin_id, text, delete_after=5)
-        except Exception as e:
-            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
     await state.clear()
