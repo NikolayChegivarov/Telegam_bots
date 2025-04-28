@@ -7,7 +7,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 
 from config import Config
 from keyboards.admin_kb import get_admin_keyboard
-from keyboards.executor_kb import create_task_response_keyboard, acquaintance_keyboard
+from keyboards.executor_kb import acquaintance_keyboard
 from states import OrderStates
 from database import create_task, change_status_user, get_all_users_type
 
@@ -278,7 +278,7 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
 
     # Формируем сообщение о новой задаче
     task_message = (
-        f"📌 Новая задача № {data['id_tasks']}!\n"
+        f"📌 Новая задача № {task_id}!\n"
         f"👷🚛Тип: {data['type_of_task']}\n"
         f"📅 Дата: {data['date_of_destination'].strftime('%d.%m.%Y')}\n"
         f"🕒 Время: {data['appointment_time'].strftime('%H:%M')}\n"
@@ -293,13 +293,12 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
     user_ids = get_all_users_type(data['type_of_task'])
     print(f"Список исполнителей: ")
 
-    # Рассылаем сообщение всем пользователям
+    # Рассылаем задачу погрузку - грузчикам, доставку - водителям.
     for user_id in user_ids:
         try:
             await bot.send_message(
                 chat_id=user_id,
-                text=task_message,
-                reply_markup=create_task_response_keyboard(task_id)  # Клавиатура для отклика
+                text=task_message
             )
         except Exception as e:
             print(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
