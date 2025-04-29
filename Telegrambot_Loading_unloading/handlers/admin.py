@@ -10,7 +10,7 @@ from keyboards.admin_kb import get_admin_keyboard
 from keyboards.executor_kb import acquaintance_keyboard
 from states import OrderStates, TaskNumber
 from database import create_task, change_status_user, get_all_users_type, complete_the_task_database, \
-    delete_the_task_database, all_order_admin_database
+    delete_the_task_database, all_order_admin_database, my_data
 
 router = Router()
 
@@ -352,3 +352,15 @@ async def all_order_admin(message: types.Message, state: FSMContext):
         text=orders,
         reply_markup=get_admin_keyboard(),
     )
+
+@router.message(F.text == "Исполнители 👥")
+async def search_for_the_contractor(message: types.Message, state: FSMContext):
+    await state.set_state(TaskNumber.waiting_user_number)
+    await message.answer("Введите номер исполнителя:")
+
+
+@router.message(TaskNumber.waiting_user_number)
+async def search_for_the_contractor_2(message: types.Message, bot: Bot, state: FSMContext):
+    user_id = message.text
+    user = my_data(user_id)
+    await message.answer(user)
