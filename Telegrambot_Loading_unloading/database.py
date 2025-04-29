@@ -142,7 +142,7 @@ def initialize_database():
             connection.close()
 
 def add_user_to_database(user_id):
-    """Добавляет пользователя бд"""
+    """Добавляет пользователя в бд"""
     connection = None
     cursor = None
     try:
@@ -728,3 +728,105 @@ def dell_to_assigned_performers(user_id: int, id_tasks: int) -> str:
 
     except Exception as e:
         return f"Произошла ошибка: {str(e)}"
+
+
+def complete_the_task_database(task_text: str) -> str:
+    """Завершает задачу и обновляет статистику исполнителей"""
+    try:
+        # Проверяем, что передан номер задачи (число)
+        if not task_text.isdigit():
+            return "Номер задачи должен быть числом"
+
+        id_tasks = int(task_text)
+
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                # 1. Проверяем существование задачи
+                cursor.execute("""
+                    SELECT id_tasks, assigned_performers 
+                    FROM tasks 
+                    WHERE id_tasks = %s
+                """, (id_tasks,))
+
+                task_data = cursor.fetchone()
+                if not task_data:
+                    return "Задача не найдена"
+
+                # 2. Обновляем статус задачи
+                cursor.execute("""
+                    UPDATE tasks 
+                    SET task_status = 'Завершено' 
+                    WHERE id_tasks = %s
+                """, (id_tasks,))
+
+                # 3. Получаем список исполнителей
+                assigned_performers = task_data[1] if task_data[1] else []
+
+                if assigned_performers:
+                    # 4. Обновляем статистику для каждого исполнителя
+                    for performer_id in assigned_performers:
+                        cursor.execute("""
+                            INSERT INTO performer_stats (id_user_telegram, completed)
+                            VALUES (%s, 1)
+                            ON CONFLICT (id_user_telegram) 
+                            DO UPDATE SET 
+                                completed = performer_stats.completed + 1,
+                                last_updated = CURRENT_TIMESTAMP
+                        """, (performer_id,))
+
+                return f"Задача {id_tasks} успешно завершена. Исполнителям добавлено + 1 в карму."
+
+    except Exception as e:
+        return f"Ошибка при завершении задачи: {str(e)}"
+
+
+def delete_the_task_database(task_text: str) -> str:
+    """Удаляет задачу и корректирует статистику исполнителей"""
+    try:
+        # Проверяем, что передан номер задачи (число)
+        if not task_text.isdigit():
+            return "❌ Номер задачи должен быть числом"
+
+        id_tasks = int(task_text)
+
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                # 1. Получаем список исполнителей перед удалением
+                cursor.execute("""
+                    SELECT assigned_performers 
+                    FROM tasks 
+                    WHERE id_tasks = %s
+                """, (id_tasks,))
+
+                task_data = cursor.fetchone()
+                if not task_data:
+                    return f"❌ Задача {id_tasks} не найдена"
+
+                assigned_performers = task_data[0] if task_data[0] else []
+
+                # 2. Уменьшаем счетчики у исполнителей (если они есть)
+                if assigned_performers:
+                    for performer_id in assigned_performers:
+                        cursor.execute("""
+                            UPDATE performer_stats 
+                            SET total_assigned = GREATEST(0, total_assigned - 1),
+                                last_updated = CURRENT_TIMESTAMP
+                            WHERE id_user_telegram = %s
+                        """, (performer_id,))
+
+                # 3. Удаляем задачу (ON CASCADE автоматически удалит связи в task_performers)
+                cursor.execute("""
+                    DELETE FROM tasks 
+                    WHERE id_tasks = %s
+                    RETURNING id_tasks
+                """, (id_tasks,))
+
+                deleted = cursor.fetchone()
+                if not deleted:
+                    return f"❌ Не удалось удалить задачу {id_tasks}"
+
+                return f"✅ Задача {id_tasks} удалена. Статистика {len(assigned_performers)} исполнителей скорректирована"
+
+    except Exception as e:
+        logger.error(f"Ошибка при удалении задачи {task_text}: {str(e)}")
+        return f"❌ Ошибка при удалении задачи: {str(e)}"

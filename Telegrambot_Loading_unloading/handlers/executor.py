@@ -250,10 +250,10 @@ async def all_order_executor(message: types.Message, state: FSMContext):
     cursor = None
 
     try:
-        # Получаем информацию о пользователе из БД
         connection = get_connection()
         cursor = connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
+        # Получаем информацию о пользователе из БД
         cursor.execute("SELECT is_loader, is_driver FROM users WHERE id_user_telegram = %s", (user_id,))
         user_data = cursor.fetchone()
 
@@ -273,6 +273,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
 
         # Получаем задачи с учетом типа пользователя
         tasks = get_pending_tasks(user_type)
+
 
         if not tasks:
             await message.answer("Нет активных задач для вас.")

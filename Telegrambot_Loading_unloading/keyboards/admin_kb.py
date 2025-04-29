@@ -4,9 +4,9 @@ def get_admin_keyboard():
     buttons = [
         [KeyboardButton(text="Поставить задачу 📝")],
         [KeyboardButton(text="Список активных задач 📋")],
-        [KeyboardButton(text="Удалить задачу")],
-        [KeyboardButton(text="Закрыть задачу")],
-        [KeyboardButton(text="Исполнители")],
+        [KeyboardButton(text="Завершить задачу 📁")],
+        [KeyboardButton(text="Удалить задачу ❌")],
+        [KeyboardButton(text="Исполнители 👥")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
 
@@ -18,7 +18,3 @@ def authorization_keyboard(user_id: int):
                                 callback_data=f"ignore_{user_id}")]
     ])
     return admin_keyboard
-
-
-
-

@@ -8,8 +8,9 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from config import Config
 from keyboards.admin_kb import get_admin_keyboard
 from keyboards.executor_kb import acquaintance_keyboard
-from states import OrderStates
-from database import create_task, change_status_user, get_all_users_type
+from states import OrderStates, TaskNumber
+from database import create_task, change_status_user, get_all_users_type, complete_the_task_database, \
+    delete_the_task_database
 
 router = Router()
 
@@ -304,4 +305,41 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
 
     await state.clear()
 
+
+@router.message(F.text == "Завершить задачу 📁")
+async def complete_the_task(message: types.Message, state: FSMContext):
+    await state.set_state(TaskNumber.waiting_task_number_complete)
+    await message.answer("Введите номер задачи, которую хотите завершить:")
+
+
+@router.message(TaskNumber.waiting_task_number_complete)  # Обрабатываем только в нужном состоянии
+async def complete_the_task_2(message: types.Message, bot: Bot, state: FSMContext):
+    task_text = message.text
+    status_task = complete_the_task_database(task_text)
+    # Сообщаем администраторам что задача завершена.
+    for admin_id in Config.get_admins():
+        try:
+            await send_temp_message(bot, admin_id, status_task, delete_after=5)
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+    await state.clear()
+
+
+@router.message(F.text == "Удалить задачу ❌")
+async def delete_the_task(message: types.Message, state: FSMContext):
+    await state.set_state(TaskNumber.waiting_task_number_delete)
+    await message.answer("Введите номер задачи, которую хотите завершить:")
+
+
+@router.message(TaskNumber.waiting_task_number_delete)  # Обрабатываем только в нужном состоянии
+async def delete_the_task(message: types.Message, bot: Bot, state: FSMContext):
+    task_text = message.text
+    status_task = delete_the_task_database(task_text)
+    # Сообщаем администраторам, что задача завершена.
+    for admin_id in Config.get_admins():
+        try:
+            await send_temp_message(bot, admin_id, status_task, delete_after=5)
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+    await state.clear()
 
