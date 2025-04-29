@@ -30,7 +30,7 @@ def get_executor_keyboard():
 
 def personal_office_keyboard():
     buttons = [
-        [KeyboardButton(text="Мои обязательства 📖")],
+        [KeyboardButton(text="Мои задачи 📖")],
         [KeyboardButton(text="Мои данные 📑")],
         [KeyboardButton(text="Статистика заявок 📊")],
         [KeyboardButton(text="Поддержка 🤖")],

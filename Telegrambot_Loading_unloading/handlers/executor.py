@@ -6,7 +6,7 @@ from aiogram import Router, types, F, Bot
 
 from config import Config
 from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers, get_user_tasks, \
-    my_data
+    my_data, contractor_statistics
 from aiogram.fsm.context import FSMContext
 
 from keyboards.admin_kb import authorization_keyboard
@@ -338,7 +338,7 @@ async def personal_office(message: types.Message, state: FSMContext):
         reply_markup=personal_office_keyboard()
     )
 
-@router.message(F.text == "Мои обязательства 📖")
+@router.message(F.text == "Мои задачи 📖")
 async def personal_office(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     tasks = get_user_tasks(user_id)
@@ -366,6 +366,16 @@ async def my_data_executor(message: types.Message, state: FSMContext):
 async def basic_menu(message: types.Message, state: FSMContext):
     await message.answer(
         text="Основное меню.",
+        reply_markup=get_executor_keyboard()
+    )
+
+
+@router.message(F.text == "Статистика заявок 📊")
+async def statistics_of_applications(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    statistics = contractor_statistics(user_id)
+    await message.answer(
+        text=statistics,
         reply_markup=get_executor_keyboard()
     )
 

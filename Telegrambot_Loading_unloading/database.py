@@ -1,3 +1,5 @@
+from venv import logger
+
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import DictCursor
@@ -571,7 +573,7 @@ def get_user_tasks(user_id):
 
 
 def my_data(user_id):
-    """Получить данные пользователя по его ID в Telegram с красивым оформлением"""
+    """Получить данные пользователя по его ID в Telegram"""
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=DictCursor) as cursor:
@@ -608,3 +610,51 @@ def my_data(user_id):
         print(f"Ошибка при получении данных пользователя: {e}")
         return "⚠️ Произошла ошибка при получении данных"
 
+
+def contractor_statistics(user_id: int) -> str:
+    """Возвращает статистику исполнителя в формате:
+    📊 Статистика заказов:
+    • Взял X
+    • Выполнил Y (Z%)
+    • Отказался W (V%)
+    """
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Получаем статистику исполнителя
+                cursor.execute("""
+                    SELECT total_assigned, completed, canceled
+                    FROM performer_stats
+                    WHERE id_user_telegram = %s
+                """, (user_id,))
+
+                stats = cursor.fetchone()
+
+                if not stats:
+                    # Если записи нет, значит исполнитель ещё не брал задач
+                    return """📊 Статистика заказов:
+                        • Взял 0
+                        • Выполнил 0 (0%)
+                        • Отказался 0 (0%)"""
+
+                total_assigned, completed, canceled = stats
+
+                # Рассчитываем проценты (избегаем деления на ноль)
+                completed_percent = 0
+                canceled_percent = 0
+
+                if total_assigned > 0:
+                    completed_percent = round((completed / total_assigned) * 100)
+                    canceled_percent = round((canceled / total_assigned) * 100)
+
+                return f"""📊 Статистика заказов:
+                    • Взял {total_assigned}
+                    • Выполнил {completed} ({completed_percent}%)
+                    • Отказался {canceled} ({canceled_percent}%)"""
+
+    except Exception as e:
+        logger.error(f"Ошибка при получении статистики для пользователя {user_id}: {e}")
+        return """📊 Статистика заказов:
+            • Взял 0
+            • Выполнил 0 (0%)
+            • Отказался 0 (0%)"""
