@@ -19,10 +19,10 @@ async def send_temp_message(
     text: str,
     delete_after: int = 5  # Через сколько секунд удалить
 ):
-    """Сообщение, которое исчезает. """
-    msg = await bot.send_message(chat_id, text)
+    """Сообщение, которое исчезает."""
+    msg = await bot.send_message(chat_id=chat_id, text=text)
     await asyncio.sleep(delete_after)
-    await bot.delete_message(chat_id, msg.message_id)
+    await bot.delete_message(chat_id=chat_id, message_id=msg.message_id)
 
 # АВТОРИЗАЦИЯ РАБОТНИКА
 @router.callback_query(F.data.startswith("add_worker_"))

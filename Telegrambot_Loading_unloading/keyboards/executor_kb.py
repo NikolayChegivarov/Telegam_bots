@@ -24,6 +24,7 @@ def get_executor_keyboard():
     buttons = [
         [KeyboardButton(text="Список активных задач 📋")],
         [KeyboardButton(text="Взять задачу ➡️")],
+        [KeyboardButton(text="Заявка выполнена ✅")],
         [KeyboardButton(text="Отказаться от задачи ❌")],
         [KeyboardButton(text="Личный кабинет 👨‍💻")]
     ]

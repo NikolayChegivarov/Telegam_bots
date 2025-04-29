@@ -28,4 +28,5 @@ class UserRegistration(StatesGroup):
 class TaskNumber(StatesGroup):
     waiting_task_number_add = State()  # Ожидание номера задачи, что бы взять задачу
     waiting_task_number_dell = State()  # Ожидание номера задачи, что бы отказаться от задачи
+    waiting_task_number_report = State()  # Ожидание номера задачи, что бы отчитаться о выполнении
 

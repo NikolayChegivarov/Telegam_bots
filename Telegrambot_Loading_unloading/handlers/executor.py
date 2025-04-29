@@ -1,6 +1,7 @@
 import asyncio
 
 import psycopg2
+from aiogram.client import bot
 from psycopg2 import extras
 from aiogram import Router, types, F, Bot
 
@@ -9,6 +10,7 @@ from database import get_pending_tasks, get_connection, connect_to_database, add
     my_data, contractor_statistics, dell_to_assigned_performers
 from aiogram.fsm.context import FSMContext
 
+from handlers.admin import send_temp_message
 from keyboards.admin_kb import authorization_keyboard
 from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard, personal_office_keyboard, update_data, support
 from states import UserRegistration, TaskNumber
@@ -240,7 +242,7 @@ async def complete_registration(message: types.Message, state: FSMContext, bot: 
         await state.clear()
 
 
-# ПРЕДОСТАВЛЯЕМ ЗАДАЧИ
+# СМОТРИМ АКТИВНЫЕ ЗАДАЧИ
 @router.message(F.text == "Список активных задач 📋")
 async def all_order_executor(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -333,12 +335,12 @@ async def get_a_task(message: types.Message, state: FSMContext):
 
 # ОТКАЗАТЬСЯ ОТ ЗАДАЧИ
 @router.message(F.text == "Отказаться от задачи ❌")
-async def take_the_task(message: types.Message, state: FSMContext):
+async def refusal_of_the_task(message: types.Message, state: FSMContext):
     await state.set_state(TaskNumber.waiting_task_number_dell)
     await message.answer("Введите номер задачи от которой хотите отказаться:")
 
 @router.message(TaskNumber.waiting_task_number_dell)
-async def get_a_task(message: types.Message, state: FSMContext):
+async def refusal_of_the_task_2(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     task_text = message.text
 
@@ -355,6 +357,24 @@ async def get_a_task(message: types.Message, state: FSMContext):
         reply_markup=get_executor_keyboard(),
     )
     await state.clear()
+
+# ОТЧИТАТЬСЯ
+@router.message(F.text == "Заявка выполнена ✅")
+async def application_is_completed(message: types.Message, state: FSMContext):
+    await state.set_state(TaskNumber.waiting_task_number_report)
+    await message.answer("Введите номер задачи которую выполнили:")
+
+@router.message(TaskNumber.waiting_task_number_report)
+async def application_is_completed_2(message: types.Message, state: FSMContext, bot: Bot):  # Добавляем bot в параметры
+    user_id = message.from_user.id
+    task_text = message.text
+    # Отправляем исчезающее сообщение всем администраторам.
+    for admin_id in Config.get_admins():
+        try:
+            text = f"Пользователь {user_id} уведомляет о выполнении задачи # {task_text}"
+            await send_temp_message(bot, admin_id, text, delete_after=10)
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
 
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
@@ -395,7 +415,6 @@ async def basic_menu(message: types.Message, state: FSMContext):
         reply_markup=get_executor_keyboard()
     )
 
-
 @router.message(F.text == "Статистика заявок 📊")
 async def statistics_of_applications(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
@@ -410,17 +429,13 @@ async def my_data_executor(message: types.Message, state: FSMContext):
     await message.answer(
         text="""
         1. При появлении новой заявки вам придёт сообщение в чате.
-        2. Выберите заявку, которую хотите взять в работу.
-        3. Если вы планируете ехать один, то выберите «Еду 1».
-        4. Если вы планируете ехать на заявку с кем-то, то выберите соответствующее количество исполнителей.
-        5. После заполнения заявки необходимым количеством исполнителей, она исчезает из чата.
-        6. Информацию об актуальной заявке можно посмотреть в разделе «Мои заявки 🤝».
-        7. Используйте команды из блока информации о заявке, чтобы обновлять информацию о выполнении:
-           • "Начать заявку" – приступили к работе.
-           • "Заявка выполнена" – завершили работу.
-           • "Задать вопрос" – связаться с менеджером для уточнения данных.
-           • "Отклонить заявку" – отказ выполнять заказ (необходимо указать причину отказа).
-        8. После завершения заказа обязательно отметьте его как "Заявка выполнена".
+        2. Выберите заявку, которую хотите исполнить. Нажмите "Взять задачу ➡️", укажите номер задачи.
+        3. Информацию об актуальной заявке можно посмотреть в разделе "Мои задачи 📖".
+        4. После завершения заказа любой исполнитель может нажать "Заявка выполнена ✅"
+        5. 
+        6. 
+        7. 
+        8. 
         """,
         reply_markup=get_executor_keyboard()
     )
