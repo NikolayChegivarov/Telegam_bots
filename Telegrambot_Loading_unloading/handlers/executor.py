@@ -331,7 +331,7 @@ async def personal_office(message: types.Message, state: FSMContext):
         reply_markup=personal_office_keyboard()
     )
 
-@router.message(F.text == "Мои заявки 🤝")
+@router.message(F.text == "Мои обязательства 📖")
 async def personal_office(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     tasks = get_user_tasks(user_id)
