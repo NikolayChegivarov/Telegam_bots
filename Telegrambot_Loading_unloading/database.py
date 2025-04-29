@@ -113,7 +113,7 @@ def initialize_database():
                     CHECK (task_status IN ('Назначена', 'Работники найдены', 'Завершено', 'Отменено'))
             );
             CREATE TABLE IF NOT EXISTS performer_stats (
-                id_user_telegram BIGINT PRIMARY KEY REFERENCES users(id_user_telegram),
+                id_user_telegram BIGINT PRIMARY KEY REFERENCES users(id_user_telegram) ON DELETE CASCADE,
                 total_assigned INT NOT NULL DEFAULT 0,                        -- Всего назначено
                 completed INT NOT NULL DEFAULT 0,                             -- Успешно выполнено
                 canceled INT NOT NULL DEFAULT 0,                              -- Отказано/отменено

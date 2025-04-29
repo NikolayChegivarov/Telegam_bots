@@ -303,3 +303,5 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
     )
 
     await state.clear()
+
+
