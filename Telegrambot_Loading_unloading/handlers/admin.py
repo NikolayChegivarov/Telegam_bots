@@ -300,7 +300,8 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
     # Отправляем подтверждение создателю
     await message.answer(
         f"✅ Задача #{task_id} успешно создана и отправлена {len(user_ids)} исполнителям!\n"
-        f"{task_message}"
+        f"{task_message}",
+        reply_markup=get_admin_keyboard(),
     )
 
     await state.clear()
@@ -344,3 +345,5 @@ async def delete_the_task_2(message: types.Message, bot: Bot, state: FSMContext)
 
     await state.clear()
 
+@router.message(F.text == "Активные задачи 📋")
+async def delete_the_task(message: types.Message, state: FSMContext):

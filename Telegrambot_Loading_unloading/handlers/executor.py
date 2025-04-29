@@ -246,68 +246,66 @@ async def complete_registration(message: types.Message, state: FSMContext, bot: 
 @router.message(F.text == "Список активных задач 📋")
 async def all_order_executor(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    connection = None
-    cursor = None
 
     try:
-        connection = get_connection()
-        cursor = connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cursor:
+                # Получаем информацию о пользователе из БД
+                cursor.execute("SELECT is_loader, is_driver FROM users WHERE id_user_telegram = %s", (user_id,))
+                user_data = cursor.fetchone()
 
-        # Получаем информацию о пользователе из БД
-        cursor.execute("SELECT is_loader, is_driver FROM users WHERE id_user_telegram = %s", (user_id,))
-        user_data = cursor.fetchone()
+                if not user_data:
+                    await message.answer("Пользователь не найден.")
+                    return
 
-        if not user_data:
-            await message.answer("Пользователь не найден.")
-            return
+                is_loader = user_data['is_loader']
+                is_driver = user_data['is_driver']
 
-        is_loader = user_data['is_loader']
-        is_driver = user_data['is_driver']
+                # Определяем тип пользователя для фильтрации задач
+                user_type = None
+                if is_loader and not is_driver:
+                    user_type = "loader"
+                elif is_driver and not is_loader:
+                    user_type = "driver"
 
-        # Определяем тип пользователя для фильтрации задач
-        user_type = None
-        if is_loader and not is_driver:
-            user_type = "loader"
-        elif is_driver and not is_loader:
-            user_type = "driver"
+                # Получаем задачи с учетом типа пользователя
+                cursor.execute("""
+                    SELECT * FROM tasks 
+                    WHERE status = 'pending' 
+                    AND (task_type = %s OR %s IS NULL)
+                    ORDER BY created_at DESC
+                """, (user_type, user_type))
+                tasks = cursor.fetchall()
 
-        # Получаем задачи с учетом типа пользователя
-        tasks = get_pending_tasks(user_type)
+                if not tasks:
+                    await message.answer("Нет активных задач для вас.")
+                    return
 
+                # Формируем сообщение с задачами
+                response = []
+                for task in tasks:
+                    task_info = (
+                        f"🆔 Номер задачи: {task['id_tasks']}\n"
+                        f"🔹 Тип: {task['task_type']}\n"
+                        f"📅 Дата: {task['date']}\n"
+                        f"⏰ Время: {task['time']}\n"
+                        f"🏡 Адрес: {task['main_address']}"
+                    )
+                    if task['additional_address']:
+                        task_info += f" ({task['additional_address']})"
+                    task_info += (
+                        f"\n📝 Описание: {task['description']}\n"
+                        f"👷 Требуется работников: {task['required_workers']}\n"
+                        f"💰 Цена за работу: {task['worker_price']} руб.\n"
+                        f"────────────────────"
+                    )
+                    response.append(task_info)
 
-        if not tasks:
-            await message.answer("Нет активных задач для вас.")
-            return
-
-        # Формируем сообщение с задачами
-        response = []
-        for task in tasks:
-            task_info = (
-                f"🆔 Номер задачи: {task['id_tasks']}\n"
-                f"🔹 Тип: {task['task_type']}\n"
-                f"📅 Дата: {task['date']}\n"
-                f"⏰ Время: {task['time']}\n"
-                f"🏡 Адрес: {task['main_address']}"
-            )
-            if task['additional_address']:
-                task_info += f" ({task['additional_address']})"
-            task_info += (
-                f"\n📝 Описание: {task['description']}\n"
-                f"👷 Требуется работников: {task['required_workers']}\n"
-                f"💰 Цена за работу: {task['worker_price']} руб.\n"
-                f"────────────────────"
-            )
-            response.append(task_info)
-
-        await message.answer("Активные задачи:\n\n" + "\n\n".join(response))
+                await message.answer("Активные задачи:\n\n" + "\n\n".join(response))
 
     except Exception as e:
         await message.answer(f"Произошла ошибка: {str(e)}")
-    finally:
-        if cursor is not None:
-            cursor.close()
-        if connection is not None:
-            connection.close()
+
 
 # ВЗЯТЬ ЗАДАЧУ
 @router.message(F.text == "Взять задачу ➡️")
