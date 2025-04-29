@@ -335,8 +335,6 @@ async def personal_office(message: types.Message, state: FSMContext):
         text=tasks
     )
 
-
-
 @router.message(F.text == "Основное меню")
 async def basic_menu(message: types.Message, state: FSMContext):
     await message.answer(
