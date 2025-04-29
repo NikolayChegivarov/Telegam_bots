@@ -110,6 +110,13 @@ def initialize_database():
                     DEFAULT 'Назначена'
                     CHECK (task_status IN ('Назначена', 'Работники найдены', 'Завершено', 'Отменено'))
             );
+            CREATE TABLE IF NOT EXISTS performer_stats (
+                id_user_telegram BIGINT PRIMARY KEY REFERENCES users(id_user_telegram),
+                total_assigned INT NOT NULL DEFAULT 0,                        -- Всего назначено
+                completed INT NOT NULL DEFAULT 0,                             -- Успешно выполнено
+                canceled INT NOT NULL DEFAULT 0,                              -- Отказано/отменено
+                last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
             CREATE TABLE IF NOT EXISTS task_performers (                      -- Связи
                 task_id BIGINT NOT NULL,
                 id_user_telegram BIGINT NOT NULL,
@@ -313,7 +320,7 @@ def create_task(task_data: dict) -> int:
 
 def get_all_users_type(task_type: str = None):
     """
-    Получает список пользователей из базы данных с фильтрацией по роли
+    Получает список пользователей из базы данных для заданной роли
     :param task_type: Тип задачи ('Погрузка' или 'Доставка')
     :return: Список ID пользователей
     """
@@ -426,84 +433,87 @@ def get_pending_tasks(user_type: str = None) -> list[dict]:
 
 
 def add_to_assigned_performers(user_id, id_tasks):
-    """Добавляет id_user_telegram работника в список assigned_performers определённой задачи"""
-    connection = connect_to_database()
-    if not connection:
-        return False
-
+    """Добавляет id_user_telegram работника в список assigned_performers определённой задачи
+    и обновляет статистику исполнителя"""
+    if not isinstance(id_tasks, int):
+        return "Некорректный номер задачи"
     try:
-        cursor = connection.cursor()
+        with get_connection() as conn:  # Автоматическое управление соединением
+            with conn.cursor() as cursor:
+                # Проверяем существование задачи
+                cursor.execute("SELECT id_tasks FROM tasks WHERE id_tasks = %s", (id_tasks,))
+                if not cursor.fetchone():
+                    return "Задача не найдена"
 
-        # Проверяем существование задачи
-        cursor.execute("SELECT id_tasks FROM tasks WHERE id_tasks = %s", (id_tasks,))
-        if not cursor.fetchone():
-            return "Задача не найдена"
+                # Получаем данные задачи
+                cursor.execute("""
+                    SELECT task_status, required_workers, assigned_performers, 
+                           assignment_date, assignment_time, main_address 
+                    FROM tasks 
+                    WHERE id_tasks = %s
+                """, (id_tasks,))
+                task_data = cursor.fetchone()
 
-        # Получаем данные задачи
-        cursor.execute("""
-            SELECT task_status, required_workers, assigned_performers, 
-                   assignment_date, assignment_time, main_address 
-            FROM tasks 
-            WHERE id_tasks = %s
-        """, (id_tasks,))
-        task_data = cursor.fetchone()
+                task_status = task_data[0]
 
-        task_status = task_data[0]
+                # Проверяем статус задачи
+                if task_status == 'Завершено':
+                    return "Задача уже завершена"
+                elif task_status == 'Отменено':
+                    return "Задача отменена"
+                elif task_status == 'Работники найдены':
+                    return "Исполнители для задачи уже найдены"
+                elif task_status != 'Назначена':
+                    return "Невозможно взять задачу: неожиданный статус"
 
-        # Проверяем статус задачи
-        if task_status == 'Завершено':
-            return "Задача уже завершена"
-        elif task_status == 'Отменено':
-            return "Задача отменена"
-        elif task_status == 'Работники найдены':
-            return "Исполнители для задачи уже найдены"
-        elif task_status != 'Назначена':
-            return "Невозможно взять задачу: неожиданный статус"
+                # Обрабатываем случай, когда статус 'Назначена'
+                required_workers = task_data[1]
+                assigned_performers = task_data[2] if task_data[2] else []
+                remaining_slots = required_workers - len(assigned_performers)
 
-        # Обрабатываем случай, когда статус 'Назначена'
-        required_workers = task_data[1]
-        assigned_performers = task_data[2] if task_data[2] else []
-        remaining_slots = required_workers - len(assigned_performers)
+                if remaining_slots <= 0:
+                    return f"Исполнители на задачу {id_tasks} уже найдены"
 
-        if remaining_slots <= 0:
-            return f"Исполнители на задачу {id_tasks} уже найдены"
+                # Добавляем пользователя в список исполнителей
+                assigned_performers.append(user_id)
+                cursor.execute("""
+                    UPDATE tasks 
+                    SET assigned_performers = %s 
+                    WHERE id_tasks = %s
+                """, (assigned_performers, id_tasks))
 
-        # Добавляем пользователя в список исполнителей
-        assigned_performers.append(user_id)
-        cursor.execute("""
-            UPDATE tasks 
-            SET assigned_performers = %s 
-            WHERE id_tasks = %s
-        """, (assigned_performers, id_tasks))
+                # Добавляем запись в таблицу связей
+                cursor.execute("""
+                    INSERT INTO task_performers (task_id, id_user_telegram)
+                    VALUES (%s, %s)
+                """, (id_tasks, user_id))
 
-        # Добавляем запись в таблицу связей
-        cursor.execute("""
-            INSERT INTO task_performers (task_id, id_user_telegram)
-            VALUES (%s, %s)
-        """, (id_tasks, user_id))
+                # Обновляем статистику исполнителя (увеличиваем счетчик назначенных задач)
+                cursor.execute("""
+                    INSERT INTO performer_stats (id_user_telegram, total_assigned)
+                    VALUES (%s, 1)
+                    ON CONFLICT (id_user_telegram) 
+                    DO UPDATE SET 
+                        total_assigned = performer_stats.total_assigned + 1,
+                        last_updated = CURRENT_TIMESTAMP
+                """, (user_id,))
 
-        # Проверяем, заполнены ли все места
-        if remaining_slots == 1:
-            cursor.execute("""
-                UPDATE tasks 
-                SET task_status = 'Работники найдены' 
-                WHERE id_tasks = %s
-            """, (id_tasks,))
+                # Проверяем, заполнены ли все места
+                if remaining_slots == 1:
+                    cursor.execute("""
+                        UPDATE tasks 
+                        SET task_status = 'Работники найдены' 
+                        WHERE id_tasks = %s
+                    """, (id_tasks,))
 
-        # Фиксируем изменения в базе данных
-        connection.commit()
+                # Фиксируем изменения (не нужно, так как with автоматически коммитит при успехе)
 
-        return (f"Вы взяли задачу {id_tasks}. Просьба прибыть без опозданий "
-                f"{task_data[3]} к {task_data[4]} по адресу {task_data[5]}")
+                return (f"Вы взяли задачу {id_tasks}. Просьба прибыть без опозданий "
+                        f"{task_data[3]} к {task_data[4]} по адресу {task_data[5]}")
 
     except Exception as e:
-        # В случае ошибки откатываем изменения
-        connection.rollback()
+        # В случае ошибки with автоматически откатывает изменения
         return f"Произошла ошибка: {str(e)}"
-    finally:
-        # Закрываем соединение в любом случае
-        if connection:
-            connection.close()
 
 
 def get_user_tasks(user_id):

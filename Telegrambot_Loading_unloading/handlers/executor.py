@@ -315,14 +315,21 @@ async def take_the_task(message: types.Message, state: FSMContext):
 @router.message(TaskNumber.waiting_task_number)
 async def get_a_task(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    id_tasks=message.text
+    task_text = message.text
+
+    # Проверяем, что введен номер задачи (число)
+    if not task_text.isdigit():
+        await message.answer("Номер задачи должен быть числом. Попробуйте еще раз.")
+        return
+
+    id_tasks = int(task_text)
     status = add_to_assigned_performers(user_id, id_tasks)
     print(f"status {status}")
     await message.answer(
         text=status,
-        reply_markup = get_executor_keyboard(),  # Клава
+        reply_markup=get_executor_keyboard(),
     )
-
+    await state.clear()  # Не забудьте очистить состояние
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
 async def personal_office(message: types.Message, state: FSMContext):

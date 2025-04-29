@@ -32,7 +32,7 @@ def personal_office_keyboard():
     buttons = [
         [KeyboardButton(text="Мои обязательства 📖")],
         [KeyboardButton(text="Мои данные 📑")],
-        [KeyboardButton(text="Моя статистика заявок 📊")],
+        [KeyboardButton(text="Статистика заявок 📊")],
         [KeyboardButton(text="Поддержка 🤖")],
         [KeyboardButton(text="Основное меню")],
     ]
