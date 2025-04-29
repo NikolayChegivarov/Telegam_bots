@@ -724,7 +724,7 @@ def dell_to_assigned_performers(user_id: int, id_tasks: int) -> str:
                 """, (user_id,))
 
                 return (f"Вы отказались от задачи {id_tasks}. "
-                        f"Статистика отказов обновлена.")
+                        f"Ваш рейтинг понижен.")
 
     except Exception as e:
         return f"Произошла ошибка: {str(e)}"

@@ -335,7 +335,7 @@ async def get_a_task(message: types.Message, state: FSMContext):
 @router.message(F.text == "Отказаться от задачи ❌")
 async def take_the_task(message: types.Message, state: FSMContext):
     await state.set_state(TaskNumber.waiting_task_number_dell)
-    await message.answer("Введите номер задачи которую хотите взять:")
+    await message.answer("Введите номер задачи от которой хотите отказаться:")
 
 @router.message(TaskNumber.waiting_task_number_dell)
 async def get_a_task(message: types.Message, state: FSMContext):
