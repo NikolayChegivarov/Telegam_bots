@@ -33,7 +33,7 @@ def personal_office_keyboard():
         [KeyboardButton(text="Мои обязательства 📖")],
         [KeyboardButton(text="Мои данные 📑")],
         [KeyboardButton(text="Моя статистика заявок 📊")],
-        [KeyboardButton(text="Поддержка ❓")],
+        [KeyboardButton(text="Поддержка 🤖")],
         [KeyboardButton(text="Основное меню")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
@@ -42,5 +42,13 @@ def update_data():
     buttons = [
         [KeyboardButton(text="Обновить данные 🤝")],
         [KeyboardButton(text="Основное меню")],
+    ]
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+def support():
+    buttons = [
+        [KeyboardButton(text="Как работать с заказами:")],
+        [KeyboardButton(text="Важные правила")],
+        [KeyboardButton(text="Часто задаваемые вопросы")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
