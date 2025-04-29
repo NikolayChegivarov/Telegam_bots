@@ -5,11 +5,12 @@ from psycopg2 import extras
 from aiogram import Router, types, F, Bot
 
 from config import Config
-from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers, get_user_tasks
+from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers, get_user_tasks, \
+    my_data
 from aiogram.fsm.context import FSMContext
 
 from keyboards.admin_kb import authorization_keyboard
-from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard, personal_office_keyboard
+from keyboards.executor_kb import yes_no_keyboard, get_executor_keyboard, personal_office_keyboard, update_data
 from states import UserRegistration, TaskNumber
 from validation import validate_phone, validate_inn
 
@@ -49,11 +50,14 @@ async def get_executor_authorization(message: types.Message, bot: Bot):
 
     await message.answer("Ваша заявка отправлена администраторам. Мы свяжемся с вами в ближайшее время!")
 
-# СОБИРАЕМ ДАННЫЕ РАБОТНИКА
-@router.message(F.text == "Начать знакомство 🤝")
+# СОБИРАЕМ/ОБНОВЛЯЕМ ДАННЫЕ РАБОТНИКА
+@router.message(F.text.in_(["Начать знакомство 🤝", "Обновить данные 🤝"]))
 async def start_registration(message: types.Message, state: FSMContext):
     await state.set_state(UserRegistration.first_name)
-    await message.answer("Введите ваше имя:")
+    await message.answer(
+        "Введите ваше имя:",
+        reply_markup=types.ReplyKeyboardRemove()  # Удаляет текущую клавиатуру
+    )
 
 @router.message(UserRegistration.first_name)
 async def process_first_name(message: types.Message, state: FSMContext):
@@ -188,7 +192,7 @@ async def complete_registration(message: types.Message, state: FSMContext, bot: 
 
         # Формируем текст для администраторов
         admin_text = (
-            "🆕 Новый работник зарегистрирован:\n"
+            "🆕 Появились новые данные:\n"
             f"👤 ID: {user_id}\n"
             f"👨‍💼 Имя: {first_name} {last_name}\n"
             f"📞 Телефон: {phone}\n"
@@ -280,7 +284,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
                 f"🔹 Тип: {task['task_type']}\n"
                 f"📅 Дата: {task['date']}\n"
                 f"⏰ Время: {task['time']}\n"
-                f"📍 Адрес: {task['main_address']}"
+                f"🏡 Адрес: {task['main_address']}"
             )
             if task['additional_address']:
                 task_info += f" ({task['additional_address']})"
@@ -335,15 +339,18 @@ async def personal_office(message: types.Message, state: FSMContext):
         text=tasks
     )
 
+@router.message(F.text == "Мои данные 📑")
+async def my_data_executor(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    data = my_data(user_id)
+    await message.answer(
+        text=data,
+        reply_markup=update_data()
+    )
+
 @router.message(F.text == "Основное меню")
 async def basic_menu(message: types.Message, state: FSMContext):
     await message.answer(
         text="Основное меню.",
         reply_markup=get_executor_keyboard()
     )
-
-
-
-
-
-

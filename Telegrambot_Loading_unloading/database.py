@@ -558,3 +558,43 @@ def get_user_tasks(user_id):
     except Exception as e:
         print(f"Ошибка при получении задач пользователя: {e}")
         return "Произошла ошибка при получении данных о задачах"
+
+
+def my_data(user_id):
+    """Получить данные пользователя по его ID в Telegram с красивым оформлением"""
+    try:
+        with get_connection() as conn:
+            with conn.cursor(cursor_factory=DictCursor) as cursor:
+                cursor.execute("""
+                    SELECT 
+                        first_name, 
+                        last_name, 
+                        phone, 
+                        is_loader, 
+                        is_driver, 
+                        is_self_employed
+                    FROM users
+                    WHERE id_user_telegram = %s
+                """, (user_id,))
+
+                user_data = cursor.fetchone()
+
+                if user_data:
+                    # Формируем строку с эмодзи
+                    result = (
+                        f"👤 Профиль пользователя:\n\n"
+                        f"👨‍💼 Имя: {user_data['first_name']} {user_data['last_name']}\n"
+                        f"📱 Телефон: {user_data['phone']}\n"
+                        f"🔧 Роли:\n"
+                        f"{'✅' if user_data['is_loader'] else '❌'} Грузчик\n"
+                        f"{'✅' if user_data['is_driver'] else '❌'} Водитель\n"
+                        f"{'✅' if user_data['is_self_employed'] else '❌'} Самозанятый"
+                    )
+                    return result
+                else:
+                    return "❌ Пользователь не найден"
+
+    except Exception as e:
+        print(f"Ошибка при получении данных пользователя: {e}")
+        return "⚠️ Произошла ошибка при получении данных"
+

@@ -30,11 +30,17 @@ def get_executor_keyboard():
 
 def personal_office_keyboard():
     buttons = [
-        [KeyboardButton(text="Мои заявки 🤝")],
+        [KeyboardButton(text="Мои заявки 🧾")],
         [KeyboardButton(text="Мои данные 📑")],
-
         [KeyboardButton(text="Моя статистика заявок 📊")],
         [KeyboardButton(text="Поддержка ❓")],
+        [KeyboardButton(text="Основное меню")],
+    ]
+    return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
+
+def update_data():
+    buttons = [
+        [KeyboardButton(text="Обновить данные 🤝")],
         [KeyboardButton(text="Основное меню")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
