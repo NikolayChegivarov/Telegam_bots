@@ -658,3 +658,73 @@ def contractor_statistics(user_id: int) -> str:
             • Взял 0
             • Выполнил 0 (0%)
             • Отказался 0 (0%)"""
+
+
+def dell_to_assigned_performers(user_id: int, id_tasks: int) -> str:
+    """Удаляет пользователя из списка исполнителей задачи
+    и обновляет статистику отказов"""
+    if not isinstance(id_tasks, int):
+        return "Некорректный номер задачи"
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Проверяем существование задачи
+                cursor.execute("SELECT id_tasks FROM tasks WHERE id_tasks = %s", (id_tasks,))
+                if not cursor.fetchone():
+                    return "Задача не найдена"
+
+                # Получаем данные задачи
+                cursor.execute("""
+                    SELECT task_status, required_workers, assigned_performers
+                    FROM tasks 
+                    WHERE id_tasks = %s
+                """, (id_tasks,))
+                task_data = cursor.fetchone()
+
+                task_status = task_data[0]
+                assigned_performers = task_data[2] if task_data[2] else []
+
+                # Проверяем, что пользователь есть в списке исполнителей
+                if user_id not in assigned_performers:
+                    return "Вы не были назначены на эту задачу"
+
+                # Проверяем статус задачи
+                if task_status == 'Завершено':
+                    return "Нельзя отказаться от завершенной задачи"
+                elif task_status == 'Отменено':
+                    return "Задача уже отменена"
+
+                # Удаляем пользователя из списка исполнителей
+                new_performers = [pid for pid in assigned_performers if pid != user_id]
+                cursor.execute("""
+                    UPDATE tasks 
+                    SET assigned_performers = %s,
+                        task_status = CASE 
+                            WHEN %s = 'Работники найдены' THEN 'Назначена'
+                            ELSE task_status
+                        END
+                    WHERE id_tasks = %s
+                """, (new_performers if new_performers else None, task_status, id_tasks))
+
+                # Удаляем запись из таблицы связей
+                cursor.execute("""
+                    DELETE FROM task_performers 
+                    WHERE task_id = %s AND id_user_telegram = %s
+                """, (id_tasks, user_id))
+
+                # Обновляем статистику исполнителя (увеличиваем счетчик отмененных задач)
+                cursor.execute("""
+                    INSERT INTO performer_stats (id_user_telegram, canceled)
+                    VALUES (%s, 1)
+                    ON CONFLICT (id_user_telegram) 
+                    DO UPDATE SET 
+                        canceled = performer_stats.canceled + 1,
+                        last_updated = CURRENT_TIMESTAMP
+                """, (user_id,))
+
+                return (f"Вы отказались от задачи {id_tasks}. "
+                        f"Статистика отказов обновлена.")
+
+    except Exception as e:
+        return f"Произошла ошибка: {str(e)}"

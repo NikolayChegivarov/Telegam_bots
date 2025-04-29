@@ -6,7 +6,7 @@ from aiogram import Router, types, F, Bot
 
 from config import Config
 from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers, get_user_tasks, \
-    my_data, contractor_statistics
+    my_data, contractor_statistics, dell_to_assigned_performers
 from aiogram.fsm.context import FSMContext
 
 from keyboards.admin_kb import authorization_keyboard
@@ -309,10 +309,10 @@ async def all_order_executor(message: types.Message, state: FSMContext):
 # ВЗЯТЬ ЗАДАЧУ
 @router.message(F.text == "Взять задачу ➡️")
 async def take_the_task(message: types.Message, state: FSMContext):
-    await state.set_state(TaskNumber.waiting_task_number)
+    await state.set_state(TaskNumber.waiting_task_number_add)
     await message.answer("Введите номер задачи которую хотите взять:")
 
-@router.message(TaskNumber.waiting_task_number)
+@router.message(TaskNumber.waiting_task_number_add)
 async def get_a_task(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     task_text = message.text
@@ -329,7 +329,33 @@ async def get_a_task(message: types.Message, state: FSMContext):
         text=status,
         reply_markup=get_executor_keyboard(),
     )
-    await state.clear()  # Не забудьте очистить состояние
+    await state.clear()
+
+# ОТКАЗАТЬСЯ ОТ ЗАДАЧИ
+@router.message(F.text == "Отказаться от задачи ❌")
+async def take_the_task(message: types.Message, state: FSMContext):
+    await state.set_state(TaskNumber.waiting_task_number_dell)
+    await message.answer("Введите номер задачи которую хотите взять:")
+
+@router.message(TaskNumber.waiting_task_number_dell)
+async def get_a_task(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    task_text = message.text
+
+    # Проверяем, что введен номер задачи (число)
+    if not task_text.isdigit():
+        await message.answer("Номер задачи должен быть числом. Попробуйте еще раз.")
+        return
+
+    id_tasks = int(task_text)
+    status = dell_to_assigned_performers(user_id, id_tasks)
+    print(f"status {status}")
+    await message.answer(
+        text=status,
+        reply_markup=get_executor_keyboard(),
+    )
+    await state.clear()
+
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
 async def personal_office(message: types.Message, state: FSMContext):
