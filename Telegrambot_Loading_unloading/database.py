@@ -845,3 +845,81 @@ async def delete_the_task_database(task_text: str, bot: Bot = None) -> str:
     except Exception as e:
         logger.error(f"Ошибка при удалении задачи {task_text}: {str(e)}")
         return f"❌ Ошибка при удалении задачи: {str(e)}"
+
+
+def all_order_admin_database() -> str:
+    """Возвращает форматированную информацию о всех активных задачах"""
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cursor:
+                # Получаем все активные задачи
+                cursor.execute("""
+                    SELECT 
+                        id_tasks, 
+                        created_at,
+                        assignment_date,
+                        assignment_time,
+                        task_type,
+                        description,
+                        main_address,
+                        additional_address,
+                        required_workers,
+                        worker_price,
+                        assigned_performers,
+                        task_status
+                    FROM tasks
+                    WHERE task_status IN ('Назначена', 'Работники найдены')
+                    ORDER BY assignment_date, assignment_time
+                """)
+
+                tasks = cursor.fetchall()
+
+                if not tasks:
+                    return "ℹ️ Активных задач не найдено"
+
+                result = []
+                for task in tasks:
+                    # Получаем информацию о назначенных исполнителях
+                    assigned_performers = []
+                    if task[10]:  # Если есть assigned_performers
+                        cursor.execute("""
+                            SELECT id_user_telegram, first_name, last_name, phone
+                            FROM users
+                            WHERE id_user_telegram = ANY(%s)
+                        """, (task[10],))
+                        assigned_performers = cursor.fetchall()
+
+                    # Форматируем информацию о задаче
+                    task_info = (
+                        f"🔹 Номер задачи: {task[0]}\n"
+                        f"📅 Дата создания: {task[1].strftime('%d.%m.%Y %H:%M')}\n"
+                        f"📆 Дата выполнения: {task[2] if task[2] else 'Не указана'}\n"
+                        f"⏰ Время: {task[3] if task[3] else 'Не указано'}\n"
+                        f"🏷 Тип: {task[4]}\n"
+                        f"📝 Описание: {task[5]}\n"
+                        f"📍 Адрес: {task[6]}\n"
+                        f"📍 Доп. адрес: {task[7] if task[7] else 'Нет'}\n"
+                        f"👷 Требуется работников: {task[8]}\n"
+                        f"💰 Цена за работу: {task[9]} руб.\n"
+                        f"📊 Статус: {task[11]}\n"
+                    )
+
+                    # Форматируем информацию о назначенных исполнителях
+                    if assigned_performers:
+                        performers_info = "\n👥 Назначенные исполнители:\n"
+                        for performer in assigned_performers:
+                            performers_info += (
+                                f"  👤 {performer[1]} {performer[2]} "
+                                f"(ID: {performer[0]}, 📞 {performer[3]})\n"
+                            )
+                        task_info += performers_info
+                    else:
+                        task_info += "\n⚠️ Исполнители еще не назначены\n"
+
+                    result.append(task_info)
+
+                return "\n\n".join(result)
+
+    except Exception as e:
+        logger.error(f"Ошибка при получении списка задач: {str(e)}")
+        return "❌ Произошла ошибка при получении списка задач"

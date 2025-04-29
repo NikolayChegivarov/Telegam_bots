@@ -10,7 +10,7 @@ from keyboards.admin_kb import get_admin_keyboard
 from keyboards.executor_kb import acquaintance_keyboard
 from states import OrderStates, TaskNumber
 from database import create_task, change_status_user, get_all_users_type, complete_the_task_database, \
-    delete_the_task_database
+    delete_the_task_database, all_order_admin_database
 
 router = Router()
 
@@ -346,4 +346,9 @@ async def delete_the_task_2(message: types.Message, bot: Bot, state: FSMContext)
     await state.clear()
 
 @router.message(F.text == "Активные задачи 📋")
-async def delete_the_task(message: types.Message, state: FSMContext):
+async def all_order_admin(message: types.Message, state: FSMContext):
+    orders = all_order_admin_database()
+    await message.answer(
+        text=orders,
+        reply_markup=get_admin_keyboard(),
+    )
