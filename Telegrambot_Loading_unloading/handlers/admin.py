@@ -330,16 +330,17 @@ async def delete_the_task(message: types.Message, state: FSMContext):
     await state.set_state(TaskNumber.waiting_task_number_delete)
     await message.answer("Введите номер задачи, которую хотите завершить:")
 
-
-@router.message(TaskNumber.waiting_task_number_delete)  # Обрабатываем только в нужном состоянии
-async def delete_the_task(message: types.Message, bot: Bot, state: FSMContext):
+@router.message(TaskNumber.waiting_task_number_delete)
+async def delete_the_task_2(message: types.Message, bot: Bot, state: FSMContext):
     task_text = message.text
-    status_task = delete_the_task_database(task_text)
-    # Сообщаем администраторам, что задача завершена.
+    status_task = await delete_the_task_database(task_text, bot)
+
+    # Сообщаем администраторам
     for admin_id in Config.get_admins():
         try:
             await send_temp_message(bot, admin_id, status_task, delete_after=5)
         except Exception as e:
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+
     await state.clear()
 

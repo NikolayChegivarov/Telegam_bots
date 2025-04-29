@@ -1,6 +1,7 @@
 from venv import logger
 
 import psycopg2
+from aiogram import Bot
 from psycopg2 import sql
 from psycopg2.extras import DictCursor
 import os
@@ -780,8 +781,8 @@ def complete_the_task_database(task_text: str) -> str:
         return f"Ошибка при завершении задачи: {str(e)}"
 
 
-def delete_the_task_database(task_text: str) -> str:
-    """Удаляет задачу и корректирует статистику исполнителей"""
+async def delete_the_task_database(task_text: str, bot: Bot = None) -> str:
+    """Удаляет задачу, корректирует статистику и уведомляет исполнителей"""
     try:
         # Проверяем, что передан номер задачи (число)
         if not task_text.isdigit():
@@ -791,9 +792,9 @@ def delete_the_task_database(task_text: str) -> str:
 
         with get_connection() as conn:
             with conn.cursor() as cursor:
-                # 1. Получаем список исполнителей перед удалением
+                # 1. Получаем данные задачи перед удалением
                 cursor.execute("""
-                    SELECT assigned_performers 
+                    SELECT assigned_performers, task_type 
                     FROM tasks 
                     WHERE id_tasks = %s
                 """, (id_tasks,))
@@ -803,6 +804,7 @@ def delete_the_task_database(task_text: str) -> str:
                     return f"❌ Задача {id_tasks} не найдена"
 
                 assigned_performers = task_data[0] if task_data[0] else []
+                task_type = task_data[1]  # 'Погрузка' или 'Доставка'
 
                 # 2. Уменьшаем счетчики у исполнителей (если они есть)
                 if assigned_performers:
@@ -814,18 +816,31 @@ def delete_the_task_database(task_text: str) -> str:
                             WHERE id_user_telegram = %s
                         """, (performer_id,))
 
-                # 3. Удаляем задачу (ON CASCADE автоматически удалит связи в task_performers)
+                # 3. Удаляем задачу
                 cursor.execute("""
                     DELETE FROM tasks 
                     WHERE id_tasks = %s
                     RETURNING id_tasks
                 """, (id_tasks,))
 
-                deleted = cursor.fetchone()
-                if not deleted:
+                if not cursor.fetchone():
                     return f"❌ Не удалось удалить задачу {id_tasks}"
 
-                return f"✅ Задача {id_tasks} удалена. Статистика {len(assigned_performers)} исполнителей скорректирована"
+                # 4. Уведомляем всех исполнителей соответствующего типа
+                if bot:
+                    user_type = 'грузчиков' if task_type == 'Погрузка' else 'водителей'
+                    notification = f"🔔 Задача {id_tasks} ({task_type}) была удалена администратором"
+
+                    # Получаем всех активных исполнителей этого типа
+                    performer_ids = get_all_users_type(task_type)
+
+                    for user_id in performer_ids:
+                        try:
+                            await bot.send_message(user_id, notification)
+                        except Exception as e:
+                            print(f"Не удалось уведомить пользователя {user_id}: {e}")
+
+                return f"✅ Задача {id_tasks} удалена. Уведомлены все {user_type}."
 
     except Exception as e:
         logger.error(f"Ошибка при удалении задачи {task_text}: {str(e)}")
