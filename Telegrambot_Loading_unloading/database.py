@@ -19,7 +19,7 @@ def get_connection():
     )
 
 
-def connect_to_database(dbname=None):
+def connect_to_database(dbname="postgres"):
     """Функция устанавливает подключение к базе данных указанной в аргументе."""
     if dbname is None:
         dbname = os.getenv("NAME_DB")
@@ -36,38 +36,39 @@ def connect_to_database(dbname=None):
         print(f"Ошибка при подключении к PostgreSQL: {error}")
         return None
 
+
 def check_and_create_db():
     """Проверка наличия базы данных и её создание, если она отсутствует."""
-    connection = None
-    cursor = None
     try:
-        connection = connect_to_database(dbname="postgres")  # Подключение к стандартной базе данных
-        if not connection:
+        # Попробуем подключиться напрямую к целевой базе
+        test_conn = connect_to_database(Config.DB_NAME)
+        if test_conn:
+            test_conn.close()
+            print(f"База данных {Config.DB_NAME} уже существует.")
+            return True
+
+        # Если не получилось - создаем базу
+        admin_conn = connect_to_database("postgres")
+        if not admin_conn:
+            print("Не удалось подключиться к серверу PostgreSQL")
             return False
 
-        connection.autocommit = True
-        cursor = connection.cursor()
-
-        # Проверка наличия базы данных
-        cursor.execute(sql.SQL("SELECT 1 FROM pg_database WHERE datname = %s"), [os.getenv("NAME_DB")])
-        exists = cursor.fetchone()
-
-        if not exists:
-            # Создание базы данных, если она отсутствует
-            cursor.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(os.getenv("NAME_DB"))))
-            print(f"База данных {os.getenv('NAME_DB')} успешно создана.")
-        else:
-            print(f"База данных {os.getenv('NAME_DB')} уже существует.")
-
+        admin_conn.autocommit = True
+        with admin_conn.cursor() as cursor:
+            cursor.execute(
+                sql.SQL("CREATE DATABASE {}").format(
+                    sql.Identifier(Config.DB_NAME)
+                )
+            )
+        print(f"База данных {Config.DB_NAME} успешно создана.")
         return True
+
     except Exception as e:
-        print(f"Ошибка при проверке или создании базы данных: {e}")
+        print(f"Ошибка при создании базы данных: {e}")
         return False
     finally:
-        if cursor:
-            cursor.close()
-        if connection:
-            connection.close()
+        if 'admin_conn' in locals() and admin_conn:
+            admin_conn.close()
 
 def initialize_database():
     """Функция для инициализации базы данных, включая создание таблиц, если они отсутствуют."""
