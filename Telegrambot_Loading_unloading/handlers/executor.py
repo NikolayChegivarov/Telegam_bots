@@ -131,43 +131,55 @@ async def complete_registration(message: types.Message, state: FSMContext, bot: 
     user_id = message.from_user.id
 
     try:
-        with connect_to_database() as connection:
-            if not connection:
-                await message.answer("Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
-                return False
+        connection = connect_to_database()
+        if not connection:
+            await message.answer("Ошибка подключения к базе данных. Пожалуйста, попробуйте позже.")
+            return False
 
-            with connection.cursor() as cursor:
-                # Проверяем, существует ли уже пользователь
-                cursor.execute("SELECT 1 FROM users WHERE id_user_telegram = %s", (user_id,))
-                user_exists = cursor.fetchone()
+        try:
+            with connection:
+                with connection.cursor() as cursor:
+                    # Проверяем, существует ли уже пользователь
+                    cursor.execute("SELECT 1 FROM users WHERE id_user_telegram = %s", (user_id,))
+                    user_exists = cursor.fetchone()
 
-                if user_exists:
-                    # Обновляем существующего пользователя
-                    cursor.execute("""
-                        UPDATE users 
-                        SET first_name = %s,
-                            last_name = %s,
-                            phone = %s,
-                            is_loader = %s,
-                            is_driver = %s,
-                            is_self_employed = %s,
-                            inn = %s
-                        WHERE id_user_telegram = %s
-                    """, (
-                        first_name,
-                        last_name,
-                        phone,
-                        is_loader,
-                        is_driver,
-                        is_self_employed,
-                        inn,
-                        user_id
-                    ))
-                else:
-                    # Создаем нового пользователя
-                    cursor.execute("""
-                        INSERT INTO users (
-                            id_user_telegram,
+                    if user_exists:
+                        # Обновляем существующего пользователя
+                        cursor.execute("""
+                            UPDATE users 
+                            SET first_name = %s,
+                                last_name = %s,
+                                phone = %s,
+                                is_loader = %s,
+                                is_driver = %s,
+                                is_self_employed = %s,
+                                inn = %s
+                            WHERE id_user_telegram = %s
+                        """, (
+                            first_name,
+                            last_name,
+                            phone,
+                            is_loader,
+                            is_driver,
+                            is_self_employed,
+                            inn,
+                            user_id
+                        ))
+                    else:
+                        # Создаем нового пользователя
+                        cursor.execute("""
+                            INSERT INTO users (
+                                id_user_telegram,
+                                first_name,
+                                last_name,
+                                phone,
+                                is_loader,
+                                is_driver,
+                                is_self_employed,
+                                inn
+                            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        """, (
+                            user_id,
                             first_name,
                             last_name,
                             phone,
@@ -175,19 +187,11 @@ async def complete_registration(message: types.Message, state: FSMContext, bot: 
                             is_driver,
                             is_self_employed,
                             inn
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        user_id,
-                        first_name,
-                        last_name,
-                        phone,
-                        is_loader,
-                        is_driver,
-                        is_self_employed,
-                        inn
-                    ))
+                        ))
 
-                connection.commit()
+        except Exception as e:
+            await message.answer(f"Произошла ошибка при сохранении данных: {str(e)}")
+            return False
 
         # Формируем текст для администраторов
         admin_text = (
