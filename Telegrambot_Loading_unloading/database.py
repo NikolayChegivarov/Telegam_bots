@@ -11,10 +11,10 @@ from config import Config
 
 def get_connection():
     return psycopg2.connect(
-        host=Config.DB_HOST,
-        database=Config.DB_NAME,
+        host="localhost",
+        database="Loading_unloading",
         user="postgres",
-        password=Config.DB_PASSWORD,
+        password=0000,
         port=Config.DB_PORT
     )
 
@@ -22,14 +22,14 @@ def get_connection():
 def connect_to_database(dbname="postgres"):
     """Функция устанавливает подключение к базе данных указанной в аргументе."""
     if dbname is None:
-        dbname = os.getenv("NAME_DB")
+        dbname = "Loading_unloading"
     try:
         connection = psycopg2.connect(
-            host=Config.DB_HOST,
-            database=dbname if dbname else Config.DB_NAME,
+            host="localhost",
+            database=dbname if dbname else "Loading_unloading",
             user="postgres",
-            password=Config.DB_PASSWORD,
-            port=Config.DB_PORT
+            password=0000,
+            port=5432
         )
         return connection
     except (Exception, psycopg2.Error) as error:
@@ -41,7 +41,7 @@ def check_and_create_db():
     """Проверка наличия базы данных и её создание, если она отсутствует."""
     try:
         # Попробуем подключиться напрямую к целевой базе
-        test_conn = connect_to_database(Config.DB_NAME)
+        test_conn = connect_to_database("Loading_unloading")
         if test_conn:
             test_conn.close()
             print(f"База данных {Config.DB_NAME} уже существует.")
