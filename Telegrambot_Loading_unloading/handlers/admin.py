@@ -412,26 +412,32 @@ async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMCo
         reply_markup=get_admin_keyboard()
     )
 
+
 @router.message(F.text == "Добавить комментарий исполнителю ⌨")
-async def contractor_commentary(message: types.Message, state: FSMContext):
+async def start_contractor_commentary(message: types.Message, state: FSMContext):
     await state.set_state(Text.waiting_contractor_commentary)
     await message.answer("Введите номер исполнителя:")
-    # await message.answer("Оставьте комментарий исполнителю:")
+
 
 @router.message(Text.waiting_contractor_commentary)
-async def contractor_commentary_2(message: types.Message, bot: Bot, state: FSMContext):
+async def handle_contractor_id(message: types.Message, state: FSMContext):
+    # Проверяем, что введен числовой ID
+    if not message.text.isdigit():
+        await message.answer("Пожалуйста, введите корректный номер исполнителя (только цифры):")
+        return
+
     await state.update_data(user_id=message.text)
     await message.answer("Введите комментарий исполнителю:")
     await state.set_state(Text.waiting_contractor_commentary2)
 
 
 @router.message(Text.waiting_contractor_commentary2)
-async def contractor_commentary_3(message: types.Message, bot: Bot, state: FSMContext):
+async def handle_contractor_commentary(message: types.Message, bot: Bot, state: FSMContext):
     commentary = message.text
     data = await state.get_data()
     user_id = data.get('user_id')
 
-    if user_id:
+    if user_id and user_id.isdigit():
         success = contractor_commentary_database(user_id, commentary)
         if success:
             await message.answer(
