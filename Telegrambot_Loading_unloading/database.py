@@ -25,11 +25,11 @@ def connect_to_database(dbname=None):
         dbname = os.getenv("NAME_DB")
     try:
         connection = psycopg2.connect(
-            host=os.getenv("HOST"),
-            database=dbname if dbname else os.getenv("NAME_DB"),
-            user=os.getenv("USER"),
-            password=os.getenv("PASSWORD_DB"),
-            port=os.getenv("PORT")
+            host=Config.DB_HOST,
+            database=dbname if dbname else Config.DB_NAME,
+            user=Config.DB_USER,
+            password=Config.DB_PASSWORD,
+            port=Config.DB_PORT
         )
         return connection
     except (Exception, psycopg2.Error) as error:
