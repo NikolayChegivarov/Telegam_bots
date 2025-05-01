@@ -416,46 +416,55 @@ async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMCo
 @router.message(F.text == "Добавить комментарий исполнителю ⌨")
 async def start_contractor_commentary(message: types.Message, state: FSMContext):
     await state.set_state(Text.waiting_contractor_commentary)
-    await message.answer("Введите номер исполнителя:")
+    await message.answer(
+        "Введите номер исполнителя:",
+        reply_markup=types.ReplyKeyboardMarkup(
+            keyboard=[[types.KeyboardButton(text="❌ Отменить")]],
+            resize_keyboard=True,
+        ),
+    )
 
+@router.message(F.text == "❌ Отменить")
+async def cancel_commentary(message: types.Message, state: FSMContext):
+    await state.clear()
+    await message.answer(
+        "Действие отменено.",
+        reply_markup=get_admin_keyboard(),
+    )
 
 @router.message(Text.waiting_contractor_commentary)
 async def handle_contractor_id(message: types.Message, state: FSMContext):
-    # Проверяем, что введен числовой ID
     if not message.text.isdigit():
-        await message.answer("Пожалуйста, введите корректный номер исполнителя (только цифры):")
+        await message.answer("❌ Некорректный ID. Введите только цифры:")
         return
-
     await state.update_data(user_id=message.text)
-    await message.answer("Введите комментарий исполнителю:")
     await state.set_state(Text.waiting_contractor_commentary2)
-
+    await message.answer("Введите комментарий:")
 
 @router.message(Text.waiting_contractor_commentary2)
-async def handle_contractor_commentary(message: types.Message, bot: Bot, state: FSMContext):
-    commentary = message.text
+async def handle_contractor_commentary(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    user_id = data.get('user_id')
+    user_id = data.get("user_id")
+    commentary = message.text
 
-    if user_id and user_id.isdigit():
-        success = contractor_commentary_database(user_id, commentary)
-        if success:
-            await message.answer(
-                text=f"Комментарий пользователю {user_id} оставлен.",
-                reply_markup=get_admin_keyboard()
-            )
-        else:
-            await message.answer(
-                text="Произошла ошибка при сохранении комментария.",
-                reply_markup=get_admin_keyboard()
-            )
+    if not user_id or not user_id.isdigit():
+        await message.answer("❌ Ошибка: ID не найден.")
+        await state.clear()
+        return
+
+    success = contractor_commentary_database(user_id, commentary)
+    await state.clear()  # Закрываем состояние в любом случае
+
+    if success:
+        await message.answer(
+            f"✅ Комментарий для {user_id} сохранен.",
+            reply_markup=get_admin_keyboard(),
+        )
     else:
         await message.answer(
-            text="Не удалось получить ID пользователя.",
-            reply_markup=get_admin_keyboard()
+            "❌ Ошибка при сохранении.",
+            reply_markup=get_admin_keyboard(),
         )
-
-    await state.clear()
 
 
 @router.message(F.text == "Заблокировать исполнителя 👊")
@@ -463,11 +472,18 @@ async def contractor_delite(message: types.Message, state: FSMContext):
     await state.set_state(IdUser.waiting_contractor_dell)
     await message.answer("Введите номер исполнителя для удаления:")
 
+
 @router.message(IdUser.waiting_contractor_dell)
 async def contractor_delite_2(message: types.Message, bot: Bot, state: FSMContext):
     user_id = message.text
+
+    # Проверяем, что введен числовой ID
+    if not user_id.isdigit():
+        await message.answer("Пожалуйста, введите числовой ID пользователя:")
+        return  # Прерываем выполнение функции
+
     statistics = contractor_delite_database(user_id)
-    await state.clear()  # Очищаем состояние после выполнения
+    await state.clear()
     await message.answer(
         text=statistics,
         reply_markup=get_admin_keyboard()
