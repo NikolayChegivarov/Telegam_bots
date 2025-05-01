@@ -259,9 +259,9 @@ async def all_order_executor(message: types.Message, state: FSMContext):
                 # Определяем тип пользователя для фильтрации задач
                 user_type = None
                 if is_loader and not is_driver:
-                    user_type = "loader"
+                    user_type = "Погрузка"  # Изменил на значение из таблицы
                 elif is_driver and not is_loader:
-                    user_type = "driver"
+                    user_type = "Доставка"  # Изменил на значение из таблицы
 
                 # Получаем задачи с учетом типа пользователя
                 cursor.execute("""
@@ -282,8 +282,8 @@ async def all_order_executor(message: types.Message, state: FSMContext):
                     task_info = (
                         f"🆔 Номер задачи: {task['id_tasks']}\n"
                         f"🔹 Тип: {task['task_type']}\n"
-                        f"📅 Дата: {task['date']}\n"
-                        f"⏰ Время: {task['time']}\n"
+                        f"📅 Дата: {task['assignment_date']}\n"
+                        f"⏰ Время: {task['assignment_time']}\n"
                         f"🏡 Адрес: {task['main_address']}"
                     )
                     if task['additional_address']:
