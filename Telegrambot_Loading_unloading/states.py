@@ -31,5 +31,10 @@ class TaskNumber(StatesGroup):
     waiting_task_number_report = State()  # Ожидание номера задачи, что бы отчитаться о выполнении
     waiting_task_number_complete = State()  # Ожидание номера задачи, что бы завершить
     waiting_task_number_delete = State()  # Ожидание номера задачи, что удалить задачу
-    waiting_user_number = State()  # Ожидание номера пользователя
+
+# ID user
+class IdUser(StatesGroup):
+    waiting_user_number = State()  # Ожидание номера пользователя для просмотра анкеты
+    waiting_contractor_statistics = State()  # Ожидание номера пользователя для статистики
+    waiting_contractor_dell = State()  # Ожидание номера пользователя для удаления
 

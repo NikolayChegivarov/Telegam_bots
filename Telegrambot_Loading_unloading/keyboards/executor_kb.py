@@ -51,5 +51,6 @@ def support():
     buttons = [
         [KeyboardButton(text="Как работать с заказами:")],
         [KeyboardButton(text="Важные правила")],
+        [KeyboardButton(text="Основное меню")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

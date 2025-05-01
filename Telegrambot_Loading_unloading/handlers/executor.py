@@ -7,7 +7,7 @@ from aiogram import Router, types, F, Bot
 
 from config import Config
 from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers, get_user_tasks, \
-    my_data, contractor_statistics, dell_to_assigned_performers
+    my_data, dell_to_assigned_performers, contractor_statistics_database
 from aiogram.fsm.context import FSMContext
 
 from handlers.admin import send_temp_message
@@ -412,7 +412,7 @@ async def basic_menu(message: types.Message, state: FSMContext):
 @router.message(F.text == "Статистика заявок 📊")
 async def statistics_of_applications(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
-    statistics = contractor_statistics(user_id)
+    statistics = contractor_statistics_database(user_id)
     await message.answer(
         text=statistics,
         reply_markup=get_executor_keyboard()
