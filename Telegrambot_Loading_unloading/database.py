@@ -13,7 +13,7 @@ def get_connection():
     return psycopg2.connect(
         host=Config.DB_HOST,
         database=Config.DB_NAME,
-        user=Config.DB_USER,
+        user="postgres",
         password=Config.DB_PASSWORD,
         port=Config.DB_PORT
     )
@@ -27,7 +27,7 @@ def connect_to_database(dbname="postgres"):
         connection = psycopg2.connect(
             host=Config.DB_HOST,
             database=dbname if dbname else Config.DB_NAME,
-            user=Config.DB_USER,
+            user="postgres",
             password=Config.DB_PASSWORD,
             port=Config.DB_PORT
         )
