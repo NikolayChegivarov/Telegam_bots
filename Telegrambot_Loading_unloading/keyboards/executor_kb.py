@@ -42,7 +42,7 @@ def personal_office_keyboard():
 
 def update_data():
     buttons = [
-        [KeyboardButton(text="Обновить данные 🤝")],
+        [KeyboardButton(text="Обновить данные ✏️")],
         [KeyboardButton(text="Основное меню")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

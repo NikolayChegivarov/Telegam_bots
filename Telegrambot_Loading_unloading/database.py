@@ -14,7 +14,7 @@ def get_connection():
         host="localhost",
         database="Loading_unloading",
         user="postgres",
-        password="0000",
+        password="1171",
         port=Config.DB_PORT
     )
 
@@ -26,7 +26,7 @@ def connect_to_database(dbname="Loading_unloading"):
             host="localhost",
             database=dbname,
             user="postgres",
-            password="0000",
+            password="1171",
             port=5432
         )
         connection.autocommit = True  # Добавляем автокоммит
@@ -935,3 +935,37 @@ def contractor_delite_database(user_id: str) -> str:
     except (Exception, psycopg2.Error) as error:
         print(f"Ошибка при блокировке пользователя: {error}")
         return f"Произошла ошибка при блокировке пользователя {user_id}. Подробности в логах."
+
+
+def contractor_commentary_database(user_id: str, commentary: str) -> bool:
+    """
+    Обновляет комментарий для указанного исполнителя в базе данных.
+    Использует соединение с автокоммитом.
+
+    :param user_id: ID пользователя в Telegram
+    :param commentary: Текст комментария
+    :return: True если успешно, False если ошибка
+    """
+    try:
+        user_id_int = int(user_id)
+        conn = connect_to_database()
+
+        if conn is None:
+            return False
+
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE users 
+                SET comment = %s 
+                WHERE id_user_telegram = %s
+                """,
+                (commentary, user_id_int)
+            )
+        return True
+    except (ValueError, psycopg2.Error) as e:
+        print(f"Ошибка при обновлении комментария: {e}")
+        return False
+    finally:
+        if 'conn' in locals() and conn is not None:
+            conn.close()

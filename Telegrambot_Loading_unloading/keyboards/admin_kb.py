@@ -22,6 +22,7 @@ def performers_keyboard():
         [KeyboardButton(text="Посмотреть анкету исполнителя 🗄")],
         [KeyboardButton(text="Статистика исполнителя 📊")],
         [KeyboardButton(text="Заблокировать исполнителя 👊")],
+        [KeyboardButton(text="Добавить комментарий исполнителю ⌨")],
         [KeyboardButton(text="Главное меню 🔙")],
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

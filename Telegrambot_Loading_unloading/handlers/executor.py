@@ -53,7 +53,7 @@ async def get_executor_authorization(message: types.Message, bot: Bot):
     await message.answer("Ваша заявка отправлена администраторам. Мы свяжемся с вами в ближайшее время!")
 
 # СОБИРАЕМ/ОБНОВЛЯЕМ ДАННЫЕ РАБОТНИКА
-@router.message(F.text.in_(["Начать знакомство 🤝", "Обновить данные 🤝"]))
+@router.message(F.text.in_(["Начать знакомство 🤝", "Обновить данные ✏️"]))
 async def start_registration(message: types.Message, state: FSMContext):
     await state.set_state(UserRegistration.first_name)
     await message.answer(

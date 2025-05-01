@@ -38,3 +38,7 @@ class IdUser(StatesGroup):
     waiting_contractor_statistics = State()  # Ожидание номера пользователя для статистики
     waiting_contractor_dell = State()  # Ожидание номера пользователя для удаления
 
+class Text(StatesGroup):
+    waiting_contractor_commentary = State()  # Ожидание номера пользователя комментария
+    waiting_contractor_commentary2 = State()  # Ожидание комментария
+

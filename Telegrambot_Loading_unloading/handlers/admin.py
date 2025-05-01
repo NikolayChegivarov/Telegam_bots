@@ -8,10 +8,10 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from config import Config
 from keyboards.admin_kb import get_admin_keyboard, performers_keyboard, tasks_keyboard
 from keyboards.executor_kb import acquaintance_keyboard
-from states import OrderStates, TaskNumber, IdUser
+from states import OrderStates, TaskNumber, IdUser, Text
 from database import create_task, change_status_user, get_all_users_type, complete_the_task_database, \
     delete_the_task_database, all_order_admin_database, my_data, contractor_delite_database, \
-    contractor_statistics_database
+    contractor_statistics_database, contractor_commentary_database
 
 router = Router()
 
@@ -402,6 +402,46 @@ async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMCo
         text=statistics,
         reply_markup=get_admin_keyboard()
     )
+
+@router.message(F.text == "Добавить комментарий исполнителю ⌨")
+async def contractor_commentary(message: types.Message, state: FSMContext):
+    await state.set_state(Text.waiting_contractor_commentary)
+    await message.answer("Введите номер исполнителя:")
+    # await message.answer("Оставьте комментарий исполнителю:")
+
+@router.message(Text.waiting_contractor_commentary)
+async def contractor_commentary_2(message: types.Message, bot: Bot, state: FSMContext):
+    await state.update_data(user_id=message.text)
+    await message.answer("Введите комментарий исполнителю:")
+    await state.set_state(Text.waiting_contractor_commentary2)
+
+
+@router.message(Text.waiting_contractor_commentary2)
+async def contractor_commentary_3(message: types.Message, bot: Bot, state: FSMContext):
+    commentary = message.text
+    data = await state.get_data()
+    user_id = data.get('user_id')
+
+    if user_id:
+        success = contractor_commentary_database(user_id, commentary)
+        if success:
+            await message.answer(
+                text=f"Комментарий пользователю {user_id} оставлен.",
+                reply_markup=get_admin_keyboard()
+            )
+        else:
+            await message.answer(
+                text="Произошла ошибка при сохранении комментария.",
+                reply_markup=get_admin_keyboard()
+            )
+    else:
+        await message.answer(
+            text="Не удалось получить ID пользователя.",
+            reply_markup=get_admin_keyboard()
+        )
+
+    await state.clear()
+
 
 @router.message(F.text == "Заблокировать исполнителя 👊")
 async def contractor_delite(message: types.Message, state: FSMContext):
