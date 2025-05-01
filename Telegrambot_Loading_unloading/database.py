@@ -71,7 +71,7 @@ def check_and_create_db():
 
 
 def initialize_database():
-    """Функция для инициализации базы данных, включая создание таблиц, если они отсутствуют."""
+    """Функция для инициализации базы данных, включая создание всех таблиц, если они отсутствуют."""
     connection = None
     try:
         connection = connect_to_database("Loading_unloading")
@@ -80,36 +80,72 @@ def initialize_database():
             return False
 
         with connection.cursor() as cursor:
-            # Проверяем существование таблиц
+            # Проверяем существование основных таблиц
             cursor.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_name = 'users'
-                );
+                SELECT COUNT(*) FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name IN ('users', 'tasks', 'performer_stats', 'task_performers');
             """)
-            tables_exist = cursor.fetchone()[0]
+            existing_tables = cursor.fetchone()[0]
 
-            if tables_exist:
-                print("Таблицы уже существуют.")
+            if existing_tables == 4:  # Все 4 таблицы уже существуют
+                print("Все таблицы уже существуют.")
                 return True
 
-            # Создаем таблицы
+            # Создаем таблицы, если их нет
             cursor.execute("""
-                CREATE TABLE users (
+                CREATE TABLE IF NOT EXISTS users (
                     id_user_telegram BIGINT PRIMARY KEY,
                     first_name VARCHAR(50) NOT NULL,
-                    -- остальные поля как у вас были
+                    last_name VARCHAR(50) NOT NULL,
+                    phone VARCHAR(20) NOT NULL,
+                    is_loader BOOLEAN NOT NULL DEFAULT FALSE,
+                    is_driver BOOLEAN NOT NULL DEFAULT FALSE,
+                    is_self_employed BOOLEAN NOT NULL DEFAULT FALSE,
+                    inn VARCHAR(12) NULL,
+                    status VARCHAR(20) NOT NULL 
+                        DEFAULT 'Заблокированный'
+                        CHECK (status IN ('Активный', 'Заблокированный')),
+                    comment TEXT NULL,
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
 
-                CREATE TABLE tasks (
-                    -- ваше определение таблицы tasks
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id_tasks BIGSERIAL PRIMARY KEY,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    assignment_date DATE NULL,
+                    assignment_time TIME NULL,
+                    task_type VARCHAR(20) NOT NULL
+                        CHECK (task_type IN ('Погрузка', 'Доставка')),
+                    description TEXT NOT NULL,
+                    main_address VARCHAR(200) NOT NULL,
+                    additional_address VARCHAR(200) NULL,
+                    required_workers INT NOT NULL,
+                    worker_price NUMERIC(10, 2) NOT NULL,
+                    assigned_performers BIGINT[] NULL,
+                    task_status VARCHAR(30) NOT NULL
+                        DEFAULT 'Назначена'
+                        CHECK (task_status IN ('Назначена', 'Работники найдены', 'Завершено', 'Отменено'))
                 );
 
-                -- остальные таблицы
+                CREATE TABLE IF NOT EXISTS performer_stats (
+                    id_user_telegram BIGINT PRIMARY KEY REFERENCES users(id_user_telegram) ON DELETE CASCADE,
+                    total_assigned INT NOT NULL DEFAULT 0,
+                    completed INT NOT NULL DEFAULT 0,
+                    canceled INT NOT NULL DEFAULT 0,
+                    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS task_performers (
+                    task_id BIGINT NOT NULL,
+                    id_user_telegram BIGINT NOT NULL,
+                    PRIMARY KEY (task_id, id_user_telegram),
+                    FOREIGN KEY (task_id) REFERENCES tasks(id_tasks) ON DELETE CASCADE,
+                    FOREIGN KEY (id_user_telegram) REFERENCES users(id_user_telegram) ON DELETE CASCADE
+                );
             """)
 
-            print("Таблицы успешно созданы.")
+            print("Все таблицы успешно созданы или уже существовали.")
             return True
 
     except Exception as e:
