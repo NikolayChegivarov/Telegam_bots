@@ -14,7 +14,7 @@ def get_connection():
         host="localhost",
         database="Loading_unloading",
         user="postgres",
-        password=0000,
+        password="0000",
         port=Config.DB_PORT
     )
 
@@ -28,7 +28,7 @@ def connect_to_database(dbname="postgres"):
             host="localhost",
             database=dbname if dbname else "Loading_unloading",
             user="postgres",
-            password=0000,
+            password="0000",
             port=5432
         )
         return connection
