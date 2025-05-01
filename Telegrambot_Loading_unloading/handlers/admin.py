@@ -402,11 +402,11 @@ async def contractor_statistics(message: types.Message, state: FSMContext):
     await state.set_state(IdUser.waiting_contractor_statistics)
     await message.answer("Введите номер исполнителя:")
 
-
 @router.message(IdUser.waiting_contractor_statistics)
 async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMContext):
     user_id = message.text
     statistics = contractor_statistics_database(user_id)
+    await state.clear()  # Очищаем состояние после выполнения
     await message.answer(
         text=statistics,
         reply_markup=get_admin_keyboard()
@@ -463,11 +463,11 @@ async def contractor_delite(message: types.Message, state: FSMContext):
     await state.set_state(IdUser.waiting_contractor_dell)
     await message.answer("Введите номер исполнителя для удаления:")
 
-
 @router.message(IdUser.waiting_contractor_dell)
 async def contractor_delite_2(message: types.Message, bot: Bot, state: FSMContext):
     user_id = message.text
     statistics = contractor_delite_database(user_id)
+    await state.clear()  # Очищаем состояние после выполнения
     await message.answer(
         text=statistics,
         reply_markup=get_admin_keyboard()
