@@ -352,23 +352,31 @@ async def refusal_of_the_task_2(message: types.Message, state: FSMContext):
     )
     await state.clear()
 
-# ОТЧИТАТЬСЯ
+
 @router.message(F.text == "Заявка выполнена ✅")
 async def application_is_completed(message: types.Message, state: FSMContext):
     await state.set_state(TaskNumber.waiting_task_number_report)
     await message.answer("Введите номер задачи которую выполнили:")
 
+
 @router.message(TaskNumber.waiting_task_number_report)
-async def application_is_completed_2(message: types.Message, state: FSMContext, bot: Bot):  # Добавляем bot в параметры
+async def application_is_completed_2(message: types.Message, state: FSMContext, bot: Bot):
     user_id = message.from_user.id
     task_text = message.text
-    # Отправляем исчезающее сообщение всем администраторам.
+
+    # Отправляем исчезающее сообщение всем администраторам
     for admin_id in Config.get_admins():
         try:
             text = f"Пользователь {user_id} уведомляет о выполнении задачи # {task_text}"
             await send_temp_message(bot, admin_id, text, delete_after=10)
         except Exception as e:
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+
+    # Отправляем подтверждение пользователю
+    await message.answer(f"Уведомление о выполнении задачи #{task_text} отправлено администраторам!")
+
+    # Сбрасываем состояние
+    await state.clear()
 
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
