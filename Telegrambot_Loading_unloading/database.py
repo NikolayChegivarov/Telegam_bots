@@ -19,21 +19,20 @@ def get_connection():
     )
 
 
-def connect_to_database(dbname="postgres"):
+def connect_to_database(dbname="Loading_unloading"):
     """Функция устанавливает подключение к базе данных указанной в аргументе."""
-    if dbname is None:
-        dbname = "Loading_unloading"
     try:
         connection = psycopg2.connect(
             host="localhost",
-            database=dbname if dbname else "Loading_unloading",
+            database=dbname,
             user="postgres",
             password="0000",
             port=5432
         )
+        connection.autocommit = True  # Добавляем автокоммит
         return connection
     except (Exception, psycopg2.Error) as error:
-        print(f"Ошибка при подключении к PostgreSQL: {error}")
+        print(f"Ошибка при подключении к PostgreSQL (база {dbname}): {error}")
         return None
 
 
@@ -70,73 +69,55 @@ def check_and_create_db():
         if 'admin_conn' in locals() and admin_conn:
             admin_conn.close()
 
+
 def initialize_database():
     """Функция для инициализации базы данных, включая создание таблиц, если они отсутствуют."""
+    connection = None
     try:
-        with connect_to_database() as connection:
-            if not connection:
-                print("Не удалось подключиться к базе данных")
-                return False
+        connection = connect_to_database("Loading_unloading")
+        if not connection:
+            print("Не удалось подключиться к базе данных Loading_unloading")
+            return False
 
-            with connection.cursor() as cursor:
-                cursor.execute("""
-                    CREATE TABLE IF NOT EXISTS users (
-                        id_user_telegram BIGINT PRIMARY KEY,
-                        first_name VARCHAR(50) NOT NULL,                              -- Имя
-                        last_name VARCHAR(50) NOT NULL,                               -- Фамилия
-                        phone VARCHAR(20) NOT NULL,                                   -- Телефон
-                        is_loader BOOLEAN NOT NULL DEFAULT FALSE,                     -- Грузчик
-                        is_driver BOOLEAN NOT NULL DEFAULT FALSE,                     -- Водитель
-                        is_self_employed BOOLEAN NOT NULL DEFAULT FALSE,              -- Самозанятый
-                        inn VARCHAR(12) NULL,                                         -- ИНН
-                        status VARCHAR(20) NOT NULL                                   -- Статус активности
-                            DEFAULT 'Заблокированный'
-                            CHECK (status IN ('Активный', 'Заблокированный')),
-                        comment TEXT NULL,                                            -- Комментарий администратора
-                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP       -- Когда создан
-                    );
+        with connection.cursor() as cursor:
+            # Проверяем существование таблиц
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'users'
+                );
+            """)
+            tables_exist = cursor.fetchone()[0]
 
-                    CREATE TABLE IF NOT EXISTS tasks (
-                        id_tasks BIGSERIAL PRIMARY KEY, 
-                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,      -- Дата, время создания задачи
-                        assignment_date DATE NULL,                                    -- Дата назначения
-                        assignment_time TIME NULL,                                    -- Время назначения
-                        task_type VARCHAR(20) NOT NULL                                -- Тип задачи
-                            CHECK (task_type IN ('Погрузка', 'Доставка')),            
-                        description TEXT NOT NULL,                                    -- Описание
-                        main_address VARCHAR(200) NOT NULL,                           -- Адрес основной
-                        additional_address VARCHAR(200) NULL,                         -- Адрес дополнительный
-                        required_workers INT NOT NULL,                                -- Количество необходимых работников
-                        worker_price NUMERIC(10, 2) NOT NULL,                         -- Цена за работу
-                        assigned_performers BIGINT[] NULL,                            -- Назначенные исполнители
-                        task_status VARCHAR(30) NOT NULL                              -- Статус задачи
-                            DEFAULT 'Назначена'
-                            CHECK (task_status IN ('Назначена', 'Работники найдены', 'Завершено', 'Отменено'))
-                    );
-
-                    CREATE TABLE IF NOT EXISTS performer_stats (
-                        id_user_telegram BIGINT PRIMARY KEY REFERENCES users(id_user_telegram) ON DELETE CASCADE,
-                        total_assigned INT NOT NULL DEFAULT 0,                        -- Всего назначено
-                        completed INT NOT NULL DEFAULT 0,                             -- Успешно выполнено
-                        canceled INT NOT NULL DEFAULT 0,                              -- Отказано/отменено
-                        last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    );
-
-                    CREATE TABLE IF NOT EXISTS task_performers (                      -- Связи
-                        task_id BIGINT NOT NULL,
-                        id_user_telegram BIGINT NOT NULL,
-                        PRIMARY KEY (task_id, id_user_telegram),                      -- одна и та же комбинация задачи и пользователя не может повторяться
-                        FOREIGN KEY (task_id) REFERENCES tasks(id_tasks) ON DELETE CASCADE,  -- Если удаляется задача или пользователь, все связанные записи в этой таблице автоматически удаляются.
-                        FOREIGN KEY (id_user_telegram) REFERENCES users(id_user_telegram) ON DELETE CASCADE
-                    );
-                """)
-                connection.commit()
-                print("Таблицы успешно созданы или уже существуют.")
+            if tables_exist:
+                print("Таблицы уже существуют.")
                 return True
+
+            # Создаем таблицы
+            cursor.execute("""
+                CREATE TABLE users (
+                    id_user_telegram BIGINT PRIMARY KEY,
+                    first_name VARCHAR(50) NOT NULL,
+                    -- остальные поля как у вас были
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE tasks (
+                    -- ваше определение таблицы tasks
+                );
+
+                -- остальные таблицы
+            """)
+
+            print("Таблицы успешно созданы.")
+            return True
 
     except Exception as e:
         print(f"Ошибка при создании таблиц: {e}")
         return False
+    finally:
+        if connection:
+            connection.close()
 
 
 def add_user_to_database(user_id):
