@@ -266,7 +266,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
                 # Получаем задачи с учетом типа пользователя
                 cursor.execute("""
                     SELECT * FROM tasks 
-                    WHERE task_status = 'pending' 
+                    WHERE task_status = 'Назначена'
                     AND (task_type = %s OR %s IS NULL)
                     ORDER BY created_at DESC
                 """, (user_type, user_type))
