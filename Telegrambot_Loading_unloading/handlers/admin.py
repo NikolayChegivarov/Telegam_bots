@@ -476,14 +476,22 @@ async def cancel_commentary(message: types.Message, state: FSMContext):
         reply_markup=get_admin_keyboard(),
     )
 
+
 @router.message(Text.waiting_contractor_commentary)
 async def handle_contractor_id(message: types.Message, state: FSMContext):
+    # Проверяем, что это не команда/кнопка
+    if message.text in ["Добавить комментарий исполнителю ⌨", "❌ Отменить"]:
+        await message.answer("Пожалуйста, введите ID исполнителя (только цифры):")
+        return
+
     if not message.text.isdigit():
         await message.answer("❌ Некорректный ID. Введите только цифры:")
         return
+
     await state.update_data(user_id=message.text)
     await state.set_state(Text.waiting_contractor_commentary2)
     await message.answer("Введите комментарий:")
+
 
 @router.message(Text.waiting_contractor_commentary2)
 async def handle_contractor_commentary(message: types.Message, state: FSMContext):
