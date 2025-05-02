@@ -481,8 +481,9 @@ async def contractor_delite_2(message: types.Message, bot: Bot, state: FSMContex
     if not user_id.isdigit():
         await message.answer("Пожалуйста, введите числовой ID пользователя:")
         return  # Прерываем выполнение функции
-
+    print(f"user_id == {user_id}")
     statistics = contractor_delite_database(user_id)
+
     await state.clear()
     await message.answer(
         text=statistics,

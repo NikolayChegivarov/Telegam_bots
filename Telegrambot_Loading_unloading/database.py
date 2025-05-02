@@ -917,7 +917,7 @@ def contractor_delite_database(user_id: str) -> str:
             with connection.cursor() as cursor:
                 # Преобразуем user_id в int для сравнения с BIGINT в БД
                 user_id_int = int(user_id)
-
+                print(f"user_id_int == {user_id_int} type {type(user_id_int)}")
                 # Проверяем существование пользователя
                 cursor.execute("SELECT id_user_telegram FROM users WHERE id_user_telegram = %s", (user_id_int,))
                 if not cursor.fetchone():
