@@ -904,7 +904,7 @@ def all_order_admin_database() -> str:
 
 
 def contractor_delite_database(user_id: str) -> str:
-    """Функция для блокировки подрядчика (изменение статуса на 'Заблокированный')
+    """Функция для блокировки исполнителя (изменение статуса на 'Заблокированный')
 
     Args:
         user_id: ID пользователя Telegram в виде строки
@@ -915,16 +915,20 @@ def contractor_delite_database(user_id: str) -> str:
     try:
         with connect_to_database() as connection:
             with connection.cursor() as cursor:
+                # Преобразуем user_id в int для сравнения с BIGINT в БД
+                user_id_int = int(user_id)
+
                 # Проверяем существование пользователя
-                cursor.execute("SELECT id_user_telegram FROM users WHERE id_user_telegram = %s", (user_id,))
+                cursor.execute("SELECT id_user_telegram FROM users WHERE id_user_telegram = %s", (user_id_int,))
                 if not cursor.fetchone():
                     return f"Пользователь с ID {user_id} не найден в базе данных."
 
                 # Обновляем статус пользователя
                 cursor.execute(
                     "UPDATE users SET status = 'Заблокированный' WHERE id_user_telegram = %s",
-                    (user_id,)
+                    (user_id_int,)
                 )
+                connection.commit()  # Важно: не забываем коммитить изменения!
 
                 # Проверяем, было ли обновление
                 if cursor.rowcount == 0:
@@ -932,7 +936,7 @@ def contractor_delite_database(user_id: str) -> str:
 
                 return f"Пользователь {user_id} успешно заблокирован."
 
-    except (Exception, psycopg2.Error) as error:
+    except (ValueError, psycopg2.Error) as error:
         print(f"Ошибка при блокировке пользователя: {error}")
         return f"Произошла ошибка при блокировке пользователя {user_id}. Подробности в логах."
 
