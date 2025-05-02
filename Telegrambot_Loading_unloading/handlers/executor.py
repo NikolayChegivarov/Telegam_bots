@@ -273,7 +273,7 @@ async def all_order_executor(message: types.Message, state: FSMContext):
                 tasks = cursor.fetchall()
 
                 if not tasks:
-                    await message.answer("Нет активных задач для вас.")
+                    await message.answer("Нет активных заказов для вас.")
                     return
 
                 # Формируем сообщение с задачами

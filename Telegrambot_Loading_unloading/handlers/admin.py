@@ -423,7 +423,7 @@ async def view_data_contractor_2(message: types.Message, state: FSMContext):
 
     user_id = message.text
     user = my_data_admin(user_id)  # Убедитесь, что функция асинхронная
-    await message.answer(user, reply_markup=get_admin_keyboard())
+    await message.answer(user, reply_markup=performers_keyboard())
     await state.clear()
 
 
@@ -453,7 +453,7 @@ async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMCo
     await state.clear()  # Очищаем состояние после выполнения
     await message.answer(
         text=statistics,
-        reply_markup=get_admin_keyboard()
+        reply_markup=performers_keyboard()
     )
 
 # ДОБАВИТЬ КОМЕНТАРИЙ ИСПОЛНИТЕЛЮ
@@ -507,7 +507,7 @@ async def handle_contractor_commentary(message: types.Message, state: FSMContext
     else:
         await message.answer(
             "❌ Ошибка при сохранении.",
-            reply_markup=get_admin_keyboard(),
+            reply_markup=performers_keyboard(),
         )
 
 # ЗАБЛОКИРОВАТЬ ИСПОЛНИТЕЛЯ
