@@ -7,7 +7,7 @@ from aiogram import Router, types, F, Bot
 
 from config import Config
 from database import get_pending_tasks, get_connection, connect_to_database, add_to_assigned_performers, get_user_tasks, \
-    my_data, dell_to_assigned_performers, contractor_statistics_database
+    my_data, dell_to_assigned_performers, contractor_statistics_database, status_verification
 from aiogram.fsm.context import FSMContext
 
 from handlers.admin import send_temp_message
@@ -300,11 +300,20 @@ async def all_order_executor(message: types.Message, state: FSMContext):
 
     except Exception as e:
         await message.answer(f"Произошла ошибка: {str(e)}")
+    finally:
+        await state.clear()
 
 
 # ВЗЯТЬ ЗАДАЧУ
 @router.message(F.text == "Взять задачу ➡️")
 async def take_the_task(message: types.Message, state: FSMContext):
+    await state.clear()
+    user_id = message.from_user.id
+    # Проверяем статус пользователя
+    if not status_verification(user_id):
+        await message.answer("Извините, вы больше не можете брать задачи в этом боте. Обратитесь к администратору бота.")
+        return
+
     await state.set_state(TaskNumber.waiting_task_number_add)
     await message.answer("Введите номер задачи которую хотите взять:")
 
@@ -312,7 +321,6 @@ async def take_the_task(message: types.Message, state: FSMContext):
 async def get_a_task(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     task_text = message.text
-
     # Проверяем, что введен номер задачи (число)
     if not task_text.isdigit():
         await message.answer("Номер задачи должен быть числом. Попробуйте еще раз.")
@@ -330,6 +338,7 @@ async def get_a_task(message: types.Message, state: FSMContext):
 # ОТКАЗАТЬСЯ ОТ ЗАДАЧИ
 @router.message(F.text == "Отказаться от задачи ❌")
 async def refusal_of_the_task(message: types.Message, state: FSMContext):
+    await state.clear()
     await state.set_state(TaskNumber.waiting_task_number_dell)
     await message.answer("Введите номер задачи от которой хотите отказаться:")
 
@@ -355,6 +364,7 @@ async def refusal_of_the_task_2(message: types.Message, state: FSMContext):
 
 @router.message(F.text == "Заявка выполнена ✅")
 async def application_is_completed(message: types.Message, state: FSMContext):
+    await state.clear()
     await state.set_state(TaskNumber.waiting_task_number_report)
     await message.answer("Введите номер задачи которую выполнили:")
 
@@ -380,14 +390,14 @@ async def application_is_completed_2(message: types.Message, state: FSMContext, 
 
 
 @router.message(F.text == "Личный кабинет 👨‍💻")
-async def personal_office(message: types.Message, state: FSMContext):
+async def personal_office(message: types.Message):
     await message.answer(
         text="Выберите необходимые опции.",
         reply_markup=personal_office_keyboard()
     )
 
 @router.message(F.text == "Мои задачи 📖")
-async def personal_office(message: types.Message, state: FSMContext):
+async def personal_office(message: types.Message):
     user_id = message.from_user.id
     tasks = get_user_tasks(user_id)
     await message.answer(
@@ -395,7 +405,7 @@ async def personal_office(message: types.Message, state: FSMContext):
     )
 
 @router.message(F.text == "Мои данные 📑")
-async def my_data_executor(message: types.Message, state: FSMContext):
+async def my_data_executor(message: types.Message):
     user_id = message.from_user.id
     data = my_data(user_id)
     await message.answer(
@@ -404,14 +414,14 @@ async def my_data_executor(message: types.Message, state: FSMContext):
     )
 
 @router.message(F.text == "Поддержка 🤖")
-async def my_data_executor(message: types.Message, state: FSMContext):
+async def my_data_executor(message: types.Message):
     await message.answer(
         text="Выберите нужную опцию",
         reply_markup=support()
     )
 
 @router.message(F.text == "Основное меню")
-async def basic_menu(message: types.Message, state: FSMContext):
+async def basic_menu(message: types.Message):
     await message.answer(
         text="Основное меню.",
         reply_markup=get_executor_keyboard()

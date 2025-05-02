@@ -11,7 +11,7 @@ from keyboards.executor_kb import acquaintance_keyboard
 from states import OrderStates, TaskNumber, IdUser, Text
 from database import create_task, change_status_user, get_all_users_type, complete_the_task_database, \
     delete_the_task_database, all_order_admin_database, my_data, contractor_delite_database, \
-    contractor_statistics_database, contractor_commentary_database
+    contractor_statistics_database, contractor_commentary_database, connect_to_database, my_data_admin
 
 router = Router()
 
@@ -26,12 +26,7 @@ async def send_temp_message(
     await asyncio.sleep(delete_after)
     await bot.delete_message(chat_id=chat_id, message_id=msg.message_id)
 
-@router.message(F.text == "Главное меню 🔙")
-async def main_menu(message: types.Message):
-    await message.answer(
-        text="Выберите действия",
-        reply_markup=get_admin_keyboard()
-    )
+
 
 # АВТОРИЗАЦИЯ РАБОТНИКА
 @router.callback_query(F.data.startswith("add_worker_"))
@@ -78,6 +73,7 @@ async def add_worker_callback(callback: types.CallbackQuery, bot: Bot):
                 text=f"⚠ Не удалось отправить приветствие работнику {user_id}"
             )
 
+# ИГНОРИРОВАТЬ ЗАЯВКУ НА АВТОРИЗАЦИЮ
 @router.callback_query(F.data.startswith("ignore_"))
 async def ignore_callback(callback: types.CallbackQuery):
     user_id = int(callback.data.split("_")[1])
@@ -91,6 +87,7 @@ async def ignore_callback(callback: types.CallbackQuery):
         reply_markup=get_admin_keyboard()
     )
 
+# МЕНЮ ЗАДАЧ
 @router.message(F.text == "Меню задач 📝")
 async def tasks(message: types.Message, state: FSMContext):
     await message.answer(
@@ -115,7 +112,7 @@ async def create_order(message: types.Message, state: FSMContext):
 
 
 @router.message(OrderStates.waiting_type_of_task)
-async def process_task_type(message: types.Message, state: FSMContext):
+async def create_order(message: types.Message, state: FSMContext):
     if message.text not in ["Погрузка", "Доставка"]:
         await message.answer("Пожалуйста, выберите тип задачи из предложенных вариантов")
         return
@@ -329,18 +326,19 @@ async def process_worker_price(message: types.Message, state: FSMContext, bot: B
 
     await state.clear()
 
-
+# АКТИВНЫЕ ЗАДАЧИ
 @router.message(F.text == "Активные задачи 📋")
-async def all_order_admin(message: types.Message, state: FSMContext):
+async def all_order_admin(message: types.Message):
     orders = all_order_admin_database()
     await message.answer(
         text=orders,
-        reply_markup=get_admin_keyboard(),
+        reply_markup=tasks_keyboard(),
     )
 
-
+# ЗАВЕРШИТЬ ЗАДАЧУ
 @router.message(F.text == "Завершить задачу 📁")
 async def complete_the_task(message: types.Message, state: FSMContext):
+    await state.clear()
     await state.set_state(TaskNumber.waiting_task_number_complete)
     await message.answer("Введите номер задачи, которую хотите завершить:")
 
@@ -356,11 +354,12 @@ async def complete_the_task_2(message: types.Message, bot: Bot, state: FSMContex
             print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
     await state.clear()
 
-
+# УДАЛИТЬ ЗАДАЧУ
 @router.message(F.text == "Удалить задачу ❌")
 async def delete_the_task(message: types.Message, state: FSMContext):
+    await state.clear()
     await state.set_state(TaskNumber.waiting_task_number_delete)
-    await message.answer("Введите номер задачи, которую хотите завершить:")
+    await message.answer("Введите номер задачи, которую хотите удалить:")
 
 @router.message(TaskNumber.waiting_task_number_delete)
 async def delete_the_task_2(message: types.Message, bot: Bot, state: FSMContext):
@@ -376,31 +375,76 @@ async def delete_the_task_2(message: types.Message, bot: Bot, state: FSMContext)
 
     await state.clear()
 
+# ГЛАВНОЕ МЕНЮ
+@router.message(F.text == "Главное меню 🔙")
+async def main_menu(message: types.Message):
+    await message.answer(
+        text="Выберите действия",
+        reply_markup=get_admin_keyboard()
+    )
 
+# МЕНЮ ИСПОЛНИТЕЛЕЙ
 @router.message(F.text == "Исполнители 👥")
-async def performers(message: types.Message, state: FSMContext):
+async def performers(message: types.Message):
     await message.answer(
         text="Выберете действия",
         reply_markup=performers_keyboard(),
     )
 
-
+# ПОСМОТРЕТЬ АНКЕТУ ИСПОЛНИТЕЛЯ
 @router.message(F.text == "Посмотреть анкету исполнителя 🗄")
-async def search_for_the_contractor(message: types.Message, state: FSMContext):
+async def view_data_contractor(message: types.Message, state: FSMContext):
+    await state.clear()
+    with connect_to_database() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id_user_telegram, first_name, last_name FROM users WHERE status = 'Активный'")
+            active_users = cursor.fetchall()
+
+    if not active_users:
+        await message.answer("Нет активных исполнителей для блокировки.")
+        return
+
+    users_list = "\n".join([f"ID: {user[0]}, Имя: {user[1]} {user[2]}" for user in active_users])
+    await message.answer(
+        f"Список активных исполнителей:\n{users_list}\n\nВведите ID для просмотра анкеты:"
+    )
     await state.set_state(IdUser.waiting_user_number)
-    await message.answer("Введите номер исполнителя:")
+
 
 @router.message(IdUser.waiting_user_number)
-async def search_for_the_contractor_2(message: types.Message, bot: Bot, state: FSMContext):
+async def view_data_contractor_2(message: types.Message, state: FSMContext):
+    if message.text == "❌ Отменить":
+        await cancel_commentary(message, state)
+        return
+
+    if not message.text.isdigit():
+        await message.answer("❌ Некорректный ID. Введите только цифры или нажмите '❌ Отменить':")
+        return
+
     user_id = message.text
-    user = my_data(user_id)
-    await message.answer(user)
+    user = my_data_admin(user_id)  # Убедитесь, что функция асинхронная
+    await message.answer(user, reply_markup=get_admin_keyboard())
+    await state.clear()
 
 
+# СТАТИСТИКА ИСПОЛНИТЕЛЯ
 @router.message(F.text == "Статистика исполнителя 📊")
 async def contractor_statistics(message: types.Message, state: FSMContext):
+    with connect_to_database() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id_user_telegram, first_name, last_name FROM users WHERE status = 'Активный'")
+            active_users = cursor.fetchall()
+
+    if not active_users:
+        await message.answer("Нет активных исполнителей для блокировки.")
+        return
+
+    users_list = "\n".join([f"ID: {user[0]}, Имя: {user[1]} {user[2]}" for user in active_users])
+    await message.answer(
+        f"Список активных исполнителей:\n{users_list}\n\nВведите ID для просмотра статистики:"
+    )
     await state.set_state(IdUser.waiting_contractor_statistics)
-    await message.answer("Введите номер исполнителя:")
+
 
 @router.message(IdUser.waiting_contractor_statistics)
 async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMContext):
@@ -412,7 +456,7 @@ async def contractor_statistics_2(message: types.Message, bot: Bot, state: FSMCo
         reply_markup=get_admin_keyboard()
     )
 
-
+# ДОБАВИТЬ КОМЕНТАРИЙ ИСПОЛНИТЕЛЮ
 @router.message(F.text == "Добавить комментарий исполнителю ⌨")
 async def start_contractor_commentary(message: types.Message, state: FSMContext):
     await state.set_state(Text.waiting_contractor_commentary)
@@ -466,26 +510,40 @@ async def handle_contractor_commentary(message: types.Message, state: FSMContext
             reply_markup=get_admin_keyboard(),
         )
 
-
+# ЗАБЛОКИРОВАТЬ ИСПОЛНИТЕЛЯ
 @router.message(F.text == "Заблокировать исполнителя 👊")
 async def contractor_delite(message: types.Message, state: FSMContext):
+    with connect_to_database() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id_user_telegram, first_name, last_name FROM users WHERE status = 'Активный'")
+            active_users = cursor.fetchall()
+
+    if not active_users:
+        await message.answer("Нет активных исполнителей для блокировки.")
+        return
+
+    users_list = "\n".join([f"ID: {user[0]}, Имя: {user[1]} {user[2]}" for user in active_users])
+    await message.answer(
+        f"Список активных исполнителей:\n{users_list}\n\nВведите ID для блокировки:"
+    )
     await state.set_state(IdUser.waiting_contractor_dell)
-    await message.answer("Введите номер исполнителя для удаления:")
 
 
 @router.message(IdUser.waiting_contractor_dell)
 async def contractor_delite_2(message: types.Message, bot: Bot, state: FSMContext):
-    user_id = message.text
+    user_id = message.text.strip()
+    print(f"DEBUG: Получен ID для блокировки: {user_id}")  # Логирование
 
-    # Проверяем, что введен числовой ID
     if not user_id.isdigit():
         await message.answer("Пожалуйста, введите числовой ID пользователя:")
-        return  # Прерываем выполнение функции
-    print(f"user_id == {user_id}")
-    statistics = contractor_delite_database(user_id)
+        return
 
-    await state.clear()
-    await message.answer(
-        text=statistics,
-        reply_markup=get_admin_keyboard()
-    )
+    try:
+        user_id_int = int(user_id)
+        statistics = contractor_delite_database(user_id_int)
+        print(f"DEBUG: Результат операции: {statistics}")  # Логирование
+        await message.answer(statistics, reply_markup=get_admin_keyboard())
+    except Exception as e:
+        print(f"ERROR: Ошибка при блокировке: {str(e)}")  # Логирование ошибки
+        await message.answer(f"Произошла ошибка: {str(e)}")
+

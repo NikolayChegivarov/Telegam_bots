@@ -14,7 +14,7 @@ def get_connection():
         host="localhost",
         database="Loading_unloading",
         user="postgres",
-        password="0000",
+        password="1171",
         port=Config.DB_PORT
     )
 
@@ -26,7 +26,7 @@ def connect_to_database(dbname="Loading_unloading"):
             host="localhost",
             database=dbname,
             user="postgres",
-            password="0000",
+            password="1171",
             port=5432
         )
         connection.autocommit = True  # Добавляем автокоммит
@@ -426,6 +426,14 @@ def add_to_assigned_performers(user_id, id_tasks):
                 if not cursor.fetchone():
                     return "Задача не найдена"
 
+                # Проверяем, не добавлен ли уже пользователь в эту задачу
+                cursor.execute("""
+                    SELECT 1 FROM task_performers 
+                    WHERE task_id = %s AND id_user_telegram = %s
+                """, (id_tasks, user_id))
+                if cursor.fetchone():
+                    return f"Вы уже взяли задачу {id_tasks}"
+
                 # Получаем данные задачи
                 cursor.execute("""
                     SELECT task_status, required_workers, assigned_performers, 
@@ -486,8 +494,6 @@ def add_to_assigned_performers(user_id, id_tasks):
                         SET task_status = 'Работники найдены' 
                         WHERE id_tasks = %s
                     """, (id_tasks,))
-
-                # Фиксируем изменения (не нужно, так как with автоматически коммитит при успехе)
 
                 return (f"Вы взяли задачу {id_tasks}. Просьба прибыть без опозданий "
                         f"{task_data[3]} к {task_data[4]} по адресу {task_data[5]}")
@@ -552,7 +558,8 @@ def get_user_tasks(user_id):
 
 
 def my_data(user_id):
-    """Получить данные пользователя по его ID в Telegram"""
+    """Анкета пользователя по его ID в Telegram
+    для исполнителей."""
     try:
         with get_connection() as conn:
             with conn.cursor(cursor_factory=DictCursor) as cursor:
@@ -903,42 +910,40 @@ def all_order_admin_database() -> str:
         return "❌ Произошла ошибка при получении списка задач"
 
 
-def contractor_delite_database(user_id: str) -> str:
-    """Функция для блокировки исполнителя (изменение статуса на 'Заблокированный')
-
-    Args:
-        user_id: ID пользователя Telegram в виде строки
-
-    Returns:
-        Строка с результатом операции
-    """
+def contractor_delite_database(user_id: int) -> str:
     try:
         with connect_to_database() as connection:
-            with connection.cursor() as cursor:
-                # Преобразуем user_id в int для сравнения с BIGINT в БД
-                user_id_int = int(user_id)
-                print(f"user_id_int == {user_id_int} type {type(user_id_int)}")
-                # Проверяем существование пользователя
-                cursor.execute("SELECT id_user_telegram FROM users WHERE id_user_telegram = %s", (user_id_int,))
-                if not cursor.fetchone():
-                    return f"Пользователь с ID {user_id} не найден в базе данных."
+            print("DEBUG: Подключение к БД установлено")  # Логирование
 
-                # Обновляем статус пользователя
+            with connection.cursor() as cursor:
+                # Проверка существования пользователя
+                cursor.execute("SELECT status FROM users WHERE id_user_telegram = %s", (user_id,))
+                user_data = cursor.fetchone()
+                print(f"DEBUG: Данные пользователя: {user_data}")  # Логирование
+
+                if not user_data:
+                    return f"Пользователь с ID {user_id} не найден."
+
+                current_status = user_data[0]
+                if current_status == 'Заблокированный':
+                    return f"Пользователь {user_id} уже заблокирован."
+
+                # Блокировка
                 cursor.execute(
                     "UPDATE users SET status = 'Заблокированный' WHERE id_user_telegram = %s",
-                    (user_id_int,)
+                    (user_id,)
                 )
-                connection.commit()  # Важно: не забываем коммитить изменения!
+                connection.commit()  # Явный коммит
+                print(f"DEBUG: Затронуто строк: {cursor.rowcount}")  # Логирование
 
-                # Проверяем, было ли обновление
                 if cursor.rowcount == 0:
-                    return f"Не удалось обновить статус пользователя {user_id}. Возможно, он уже заблокирован."
+                    return f"Не удалось обновить статус пользователя {user_id}."
 
                 return f"Пользователь {user_id} успешно заблокирован."
 
-    except (ValueError, psycopg2.Error) as error:
-        print(f"Ошибка при блокировке пользователя: {error}")
-        return f"Произошла ошибка при блокировке пользователя {user_id}. Подробности в логах."
+    except Exception as error:
+        print(f"ERROR: Исключение в contractor_delite_database: {error}")
+        raise  # Пробрасываем исключение выше
 
 
 def contractor_commentary_database(user_id: str, commentary: str) -> bool:
@@ -973,3 +978,48 @@ def contractor_commentary_database(user_id: str, commentary: str) -> bool:
     finally:
         if 'conn' in locals() and conn is not None:
             conn.close()
+
+
+def my_data_admin(user_id: str) -> str:
+    """Анкета пользователей
+    для администраторов."""
+    with connect_to_database() as conn:
+        with conn.cursor() as cursor:
+            # Получаем все данные пользователя
+            cursor.execute("""
+                SELECT 
+                    id_user_telegram, 
+                    first_name, 
+                    last_name, 
+                    phone, 
+                    is_loader, 
+                    is_driver, 
+                    is_self_employed, 
+                    inn, 
+                    status, 
+                    comment, 
+                    created_at
+                FROM users 
+                WHERE id_user_telegram = %s
+            """, (user_id,))
+            user_data = cursor.fetchone()
+
+    if not user_data:
+        return "Пользователь с таким ID не найден."
+
+    # Формируем читабельное сообщение
+    response = (
+        f"📋 Анкета пользователя:\n\n"
+        f"🆔 ID: {user_data[0]}\n"
+        f"👤 Имя: {user_data[1]} {user_data[2]}\n"
+        f"📞 Телефон: {user_data[3]}\n"
+        f"👷 Грузчик: {'Да' if user_data[4] else 'Нет'}\n"
+        f"🚚 Водитель: {'Да' if user_data[5] else 'Нет'}\n"
+        f"💼 Самозанятый: {'Да' if user_data[6] else 'Нет'}\n"
+        f"📝 ИНН: {user_data[7] if user_data[7] else 'Не указан'}\n"
+        f"🔒 Статус: {user_data[8]}\n"
+        f"💬 Комментарий: {user_data[9] if user_data[9] else 'Отсутствует'}\n"
+        f"📅 Дата регистрации: {user_data[10].strftime('%Y-%m-%d %H:%M:%S')}"
+    )
+
+    return response
