@@ -14,7 +14,7 @@ def get_connection():
         host="localhost",
         database="Loading_unloading",
         user="postgres",
-        password="1171",
+        password="0000",
         port=Config.DB_PORT
     )
 
@@ -26,7 +26,7 @@ def connect_to_database(dbname="Loading_unloading"):
             host="localhost",
             database=dbname,
             user="postgres",
-            password="1171",
+            password="0000",
             port=5432
         )
         connection.autocommit = True  # Добавляем автокоммит
