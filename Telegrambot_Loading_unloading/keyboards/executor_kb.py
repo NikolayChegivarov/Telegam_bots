@@ -22,10 +22,10 @@ yes_no_keyboard = ReplyKeyboardMarkup(
 
 def get_executor_keyboard():
     buttons = [
-        [KeyboardButton(text="Список активных задач 📋")],
-        [KeyboardButton(text="Взять задачу ➡️")],
-        [KeyboardButton(text="Заявка выполнена ✅")],
-        [KeyboardButton(text="Отказаться от задачи ❌")],
+        [KeyboardButton(text="Список активных заказов 📋")],
+        [KeyboardButton(text="Взять заказ ➡️")],
+        [KeyboardButton(text="Заказ выполнен ✅")],
+        [KeyboardButton(text="Отказаться от заказа ❌")],
         [KeyboardButton(text="Личный кабинет 👨‍💻")]
     ]
     return ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)

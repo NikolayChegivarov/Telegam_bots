@@ -238,7 +238,7 @@ async def complete_registration(message: types.Message, state: FSMContext, bot: 
 
 
 # СМОТРИМ АКТИВНЫЕ ЗАДАЧИ
-@router.message(F.text == "Список активных задач 📋")
+@router.message(F.text == "Список активных заказов 📋")
 async def all_order_executor(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
 
@@ -304,8 +304,8 @@ async def all_order_executor(message: types.Message, state: FSMContext):
         await state.clear()
 
 
-# ВЗЯТЬ ЗАДАЧУ
-@router.message(F.text == "Взять задачу ➡️")
+# ВЗЯТЬ ЗАКАЗ
+@router.message(F.text == "Взять заказ ➡️")
 async def take_the_task(message: types.Message, state: FSMContext):
     await state.clear()
     user_id = message.from_user.id
@@ -335,12 +335,39 @@ async def get_a_task(message: types.Message, state: FSMContext):
     )
     await state.clear()
 
+# ОТЧЕТ О ВЫПОЛНЕННОМ ЗАКАЗЕ
+@router.message(F.text == "Заказ выполнен ✅")
+async def application_is_completed(message: types.Message, state: FSMContext):
+    await state.clear()
+    await state.set_state(TaskNumber.waiting_task_number_report)
+    await message.answer("Введите номер заказа который выполнили:")
+
+
+@router.message(TaskNumber.waiting_task_number_report)
+async def application_is_completed_2(message: types.Message, state: FSMContext, bot: Bot):
+    user_id = message.from_user.id
+    task_text = message.text
+
+    # Отправляем исчезающее сообщение всем администраторам
+    for admin_id in Config.get_admins():
+        try:
+            text = f"Пользователь {user_id} уведомляет о выполнении заказа # {task_text}"
+            await send_temp_message(bot, admin_id, text, delete_after=10)
+        except Exception as e:
+            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
+
+    # Отправляем подтверждение пользователю
+    await message.answer(f"Уведомление о выполнении заказа #{task_text} отправлено администраторам!")
+
+    # Сбрасываем состояние
+    await state.clear()
+
 # ОТКАЗАТЬСЯ ОТ ЗАДАЧИ
-@router.message(F.text == "Отказаться от задачи ❌")
+@router.message(F.text == "Отказаться от заказа ❌")
 async def refusal_of_the_task(message: types.Message, state: FSMContext):
     await state.clear()
     await state.set_state(TaskNumber.waiting_task_number_dell)
-    await message.answer("Введите номер задачи от которой хотите отказаться:")
+    await message.answer("Введите номер заказа от которого хотите отказаться:")
 
 @router.message(TaskNumber.waiting_task_number_dell)
 async def refusal_of_the_task_2(message: types.Message, state: FSMContext):
@@ -349,7 +376,7 @@ async def refusal_of_the_task_2(message: types.Message, state: FSMContext):
 
     # Проверяем, что введен номер задачи (число)
     if not task_text.isdigit():
-        await message.answer("Номер задачи должен быть числом. Попробуйте еще раз.")
+        await message.answer("Номер заказа должен быть числом. Попробуйте еще раз.")
         return
 
     id_tasks = int(task_text)
@@ -362,39 +389,13 @@ async def refusal_of_the_task_2(message: types.Message, state: FSMContext):
     await state.clear()
 
 
-@router.message(F.text == "Заявка выполнена ✅")
-async def application_is_completed(message: types.Message, state: FSMContext):
-    await state.clear()
-    await state.set_state(TaskNumber.waiting_task_number_report)
-    await message.answer("Введите номер задачи которую выполнили:")
-
-
-@router.message(TaskNumber.waiting_task_number_report)
-async def application_is_completed_2(message: types.Message, state: FSMContext, bot: Bot):
-    user_id = message.from_user.id
-    task_text = message.text
-
-    # Отправляем исчезающее сообщение всем администраторам
-    for admin_id in Config.get_admins():
-        try:
-            text = f"Пользователь {user_id} уведомляет о выполнении задачи # {task_text}"
-            await send_temp_message(bot, admin_id, text, delete_after=10)
-        except Exception as e:
-            print(f"Не удалось отправить сообщение админу {admin_id}: {e}")
-
-    # Отправляем подтверждение пользователю
-    await message.answer(f"Уведомление о выполнении задачи #{task_text} отправлено администраторам!")
-
-    # Сбрасываем состояние
-    await state.clear()
-
-
 @router.message(F.text == "Личный кабинет 👨‍💻")
 async def personal_office(message: types.Message):
     await message.answer(
         text="Выберите необходимые опции.",
         reply_markup=personal_office_keyboard()
     )
+
 
 @router.message(F.text == "Мои задачи 📖")
 async def personal_office(message: types.Message):
@@ -403,6 +404,7 @@ async def personal_office(message: types.Message):
     await message.answer(
         text=tasks
     )
+
 
 @router.message(F.text == "Мои данные 📑")
 async def my_data_executor(message: types.Message):
@@ -413,6 +415,7 @@ async def my_data_executor(message: types.Message):
         reply_markup=update_data()
     )
 
+
 @router.message(F.text == "Поддержка 🤖")
 async def my_data_executor(message: types.Message):
     await message.answer(
@@ -420,12 +423,14 @@ async def my_data_executor(message: types.Message):
         reply_markup=support()
     )
 
+
 @router.message(F.text == "Основное меню")
 async def basic_menu(message: types.Message):
     await message.answer(
         text="Основное меню.",
         reply_markup=get_executor_keyboard()
     )
+
 
 @router.message(F.text == "Статистика заявок 📊")
 async def statistics_of_applications(message: types.Message, state: FSMContext):
@@ -435,6 +440,7 @@ async def statistics_of_applications(message: types.Message, state: FSMContext):
         text=statistics,
         reply_markup=get_executor_keyboard()
     )
+
 
 @router.message(F.text == "Как работать с заказами:")
 async def my_data_executor(message: types.Message, state: FSMContext):
@@ -449,6 +455,7 @@ async def my_data_executor(message: types.Message, state: FSMContext):
         """,
         reply_markup=get_executor_keyboard()
     )
+
 
 @router.message(F.text == "Важные правила")
 async def my_data_executor(message: types.Message, state: FSMContext):
