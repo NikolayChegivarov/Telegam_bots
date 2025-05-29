@@ -15,6 +15,8 @@ from utils.recording_data import process_template
 user_states = {}
 user_data = {}
 
+OUTPUT_DIR = "Reports"  # Правильная папка для сохранения отчётов
+
 async def handle_create_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id] = ReportState.AWAITING_WORD
@@ -64,11 +66,15 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
             # Путь к шаблону
             template_path = "шаблон.docx"
 
-            # Генерация и сохранение файла
-            success = process_template(template_path, None, combined_data)
+            print("📌 combined_data:", combined_data)
+            print("📌 template path exists:", os.path.exists(template_path))
 
-            if success:
-                await update.message.reply_text("✅ Отчет успешно сформирован и сохранен в папку Reports.")
+            # Генерация и сохранение файла
+            result_path = process_template(template_path, OUTPUT_DIR, combined_data)
+
+            if result_path:
+                await update.message.reply_document(document=open(result_path, "rb"))
+                await update.message.reply_text("✅ Отчет успешно сформирован и отправлен вам.")
             else:
                 await update.message.reply_text("❌ Ошибка при формировании отчета.")
         except Exception as e:

@@ -25,29 +25,56 @@ def get_doc_text(file_path: str) -> str:
     return '\n'.join(full_text)
 
 
-def extract_from_word(file_path: str) -> dict:
-    """Извлекает наименование организации, ИНН, КПП и ОГРН из документа. Возвращает словарь."""
-    doc_text = get_doc_text(file_path)
+# utils/extraction.py
+from docx import Document
 
-    result = {'Организация': None, 'ОГРН': None, 'ИНН': None, 'КПП': None}
 
-    org_match = re.search(r'^((?:ООО|АО|ЗАО|ИП|ПАО|ОАО)\s*["«][^"»]+["»])', doc_text)
-    if org_match:
-        result['Организация'] = org_match.group(1).strip()
+def extract_from_word(path):
+    """Извлекает полную базовую информацию из Word-документа Контур.Фокус."""
+    doc = Document(path)
+    text = "\n".join(p.text.strip() for p in doc.paragraphs if p.text.strip())
 
-    inn_match = re.search(r'ИНН[\s:–-]*(\d{10,12})', doc_text, re.IGNORECASE)
-    if inn_match:
-        result['ИНН'] = inn_match.group(1)
+    data = {}
 
-    kpp_match = re.search(r'КПП[\s:–-]*(\d{9})', doc_text, re.IGNORECASE)
-    if kpp_match:
-        result['КПП'] = kpp_match.group(1)
+    # Основные шаблонные ключи и значения
+    mapping = {
+        "Наименование": "Организация",
+        "ОГРН": "ОГРН",
+        "ИНН": "ИНН",
+        "КПП": "КПП",
+        "Юридический адрес": "Юр. адрес",
+        "Дата создания": "Дата создания",
+        "Размер уставного капитала": "Уставный капитал",
+        "Генеральный директор": "Директор",
+        "ОКВЭД": "ОКВЭД",
+        "Система налогообложения": "Система налогообложения"
+    }
 
-    ogrn_match = re.search(r'ОГРН[\s:–-]*(\d{13})', doc_text, re.IGNORECASE)
-    if ogrn_match:
-        result['ОГРН'] = ogrn_match.group(1)
+    for paragraph in doc.paragraphs:
+        for key, label in mapping.items():
+            if paragraph.text.startswith(key):
+                value = paragraph.text.split(":", 1)[-1].strip()
+                if key == "ИНН" and "/" in value:
+                    inn, kpp = value.split("/")
+                    data["ИНН"] = inn.strip()
+                    data["КПП"] = kpp.strip()
+                else:
+                    data[label] = value
 
-    return result
+    # Учредители (собираются списком)
+    founders = []
+    grab = False
+    for p in doc.paragraphs:
+        if "Учредители" in p.text or "Участники" in p.text:
+            grab = True
+        elif grab:
+            if p.text.strip() == "":
+                break
+            founders.append(p.text.strip())
+
+    data["Учредители"] = "\n".join(founders)
+
+    return data
 
 
 def extract_from_pdf(path):
