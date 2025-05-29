@@ -1,37 +1,61 @@
+# bot/handlers/history.py
+
 from telegram import Update
-from telegram.ext import ContextTypes, ConversationHandler
-from history.history_manager import get_history_by_days
+from telegram.ext import ContextTypes
+from database.database_interaction import DatabaseInteraction
+from keyboards import get_admin_keyboard, administrative_keyboard, get_auth_keyboard
+from history.history_manager import read_history
 
-# Состояние для FSM
-AWAIT_DAYS = 1
 
-# Старт истории
-async def start_history_request(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("За сколько дней вы хотите получить историю?")
-    return AWAIT_DAYS
+async def handle_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = DatabaseInteraction()
+    user_id = update.effective_user.id
 
-# Обработка введённого числа
-async def process_days_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        days = int(update.message.text)
-        if days > 999:
-            await update.message.reply_text("Максимальное количество запроса истории 999 дней")
-            return ConversationHandler.END
-
-        history = get_history_by_days(days)
-
-        if not history:
-            await update.message.reply_text("Нет записей за этот период.")
+        if db.is_admin(user_id):
+            await update.message.reply_text("Панель администратора", reply_markup=administrative_keyboard())
         else:
-            text = "\n".join(
-                [f"{entry['timestamp']} — {entry['org']} ({entry['filename']})" for entry in history]
-            )
-            await update.message.reply_text(f"🗂 История за {days} дней:\n\n{text}")
-    except ValueError:
-        await update.message.reply_text("Введите число — количество дней.")
-    return ConversationHandler.END
+            await update.message.reply_text("У вас нет прав доступа.")
+    finally:
+        db.close()
 
-# Отмена (если надо)
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Запрос истории отменён.")
-    return ConversationHandler.END
+
+async def add_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = DatabaseInteraction()
+    admin_id = update.effective_user.id
+
+    try:
+        if db.is_admin(admin_id):
+            blocked_users = db.get_blocked_users()
+            if blocked_users:
+                keyboard = get_auth_keyboard(blocked_users)
+                await update.message.reply_text("Выберите пользователя для авторизации:", reply_markup=keyboard)
+            else:
+                await update.message.reply_text("Нет пользователей, ожидающих авторизации.")
+        else:
+            await update.message.reply_text("У вас нет прав для этого действия.")
+    finally:
+        db.close()
+
+
+async def handle_main_interface(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    db = DatabaseInteraction()
+    user_id = update.effective_user.id
+
+    try:
+        if db.is_admin(user_id):
+            await update.message.reply_text("Вы вернулись в основной интерфейс администратора.",
+                                            reply_markup=get_admin_keyboard())
+        else:
+            await update.message.reply_text("У вас нет прав доступа.")
+    finally:
+        db.close()
+
+
+async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    history = read_history()
+    if history:
+        response = "История сформированных отчетов:\n\n" + ", ".join(history)
+    else:
+        response = "История пуста."
+    await update.message.reply_text(response)
