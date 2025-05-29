@@ -1,7 +1,6 @@
 # views_docs/views_word_file.py
 from docx import Document
 import os
-from utils.extraction import extract_org_data
 
 def print_doc_structure(doc):
     """Выводит структуру документа в терминал"""

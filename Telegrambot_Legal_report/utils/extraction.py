@@ -25,54 +25,35 @@ def get_doc_text(file_path: str) -> str:
     return '\n'.join(full_text)
 
 
-# utils/extraction.py
-from docx import Document
-
+def normalize_company_name(full_name: str) -> str:
+    if "Общество с ограниченной ответственностью" in full_name:
+        return full_name.replace("Общество с ограниченной ответственностью", "ООО").strip()
+    return full_name.strip()
 
 def extract_from_word(path):
-    """Извлекает полную базовую информацию из Word-документа Контур.Фокус."""
+    """Извлекает базовые сведения из таблиц Word-документа Контур.Фокус."""
     doc = Document(path)
-    text = "\n".join(p.text.strip() for p in doc.paragraphs if p.text.strip())
-
     data = {}
 
-    # Основные шаблонные ключи и значения
-    mapping = {
-        "Наименование": "Организация",
-        "ОГРН": "ОГРН",
-        "ИНН": "ИНН",
-        "КПП": "КПП",
-        "Юридический адрес": "Юр. адрес",
-        "Дата создания": "Дата создания",
-        "Размер уставного капитала": "Уставный капитал",
-        "Генеральный директор": "Директор",
-        "ОКВЭД": "ОКВЭД",
-        "Система налогообложения": "Система налогообложения"
-    }
+    try:
+        table1 = doc.tables[0]
+        table2 = doc.tables[1]
 
-    for paragraph in doc.paragraphs:
-        for key, label in mapping.items():
-            if paragraph.text.startswith(key):
-                value = paragraph.text.split(":", 1)[-1].strip()
-                if key == "ИНН" and "/" in value:
-                    inn, kpp = value.split("/")
-                    data["ИНН"] = inn.strip()
-                    data["КПП"] = kpp.strip()
-                else:
-                    data[label] = value
+        raw_name = table1.cell(0, 1).text.strip()
+        data["Организация"] = normalize_company_name(raw_name)
 
-    # Учредители (собираются списком)
-    founders = []
-    grab = False
-    for p in doc.paragraphs:
-        if "Учредители" in p.text or "Участники" in p.text:
-            grab = True
-        elif grab:
-            if p.text.strip() == "":
-                break
-            founders.append(p.text.strip())
+        data["Дата создания"] = table1.cell(0, 2).text.strip()
+        data["ИНН"] = table1.cell(14, 1).text.strip()
+        data["КПП"] = table1.cell(15, 1).text.strip()
+        data["ОГРН"] = table1.cell(16, 1).text.strip()
+        data["Юр. адрес"] = table1.cell(20, 1).text.strip()
+        data["Уставный капитал"] = table1.cell(40, 1).text.strip()
+        data["Директор"] = table1.cell(36, 1).text.strip()
+        data["ОКВЭД"] = table2.cell(2, 1).text.strip()
+        data["Учредители"] = table1.cell(2, 2).text.strip()
 
-    data["Учредители"] = "\n".join(founders)
+    except Exception as e:
+        print(f"❌ Ошибка при извлечении из Word: {e}")
 
     return data
 

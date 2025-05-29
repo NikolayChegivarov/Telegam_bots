@@ -17,11 +17,13 @@ user_data = {}
 
 OUTPUT_DIR = "Reports"  # Правильная папка для сохранения отчётов
 
+
 async def handle_create_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_states[user_id] = ReportState.AWAITING_WORD
     user_data[user_id] = {}
     await update.message.reply_text("Прикрепите, пожалуйста, Word-файл «Выгрузка Контур.Фокус».")
+
 
 async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -42,12 +44,14 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
     if state == ReportState.AWAITING_WORD:
         user_data[user_id]['word'] = file_path
         user_states[user_id] = ReportState.AWAITING_PDF
-        await update.message.reply_text("Я получил файл «Выгрузка Контур.Фокус». Прикрепите, пожалуйста, PDF-файл «Финансовая выгрузка из Контур.Фокус».")
+        await update.message.reply_text(
+            "Я получил файл «Выгрузка Контур.Фокус». Прикрепите, пожалуйста, PDF-файл «Финансовая выгрузка из Контур.Фокус».")
 
     elif state == ReportState.AWAITING_PDF:
         user_data[user_id]['pdf'] = file_path
         user_states[user_id] = ReportState.AWAITING_EXCEL
-        await update.message.reply_text("Я получил файл «Финансовая выгрузка из Контур.Фокус».\n\nПрикрепите, пожалуйста, Excel-файл «Выгрузка арбитражных производств».")
+        await update.message.reply_text(
+            "Я получил файл «Финансовая выгрузка из Контур.Фокус».\n\nПрикрепите, пожалуйста, Excel-файл «Выгрузка арбитражных производств».")
 
     elif state == ReportState.AWAITING_EXCEL:
         user_data[user_id]['excel'] = file_path
@@ -57,8 +61,13 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
         try:
             # Извлечение данных
             word_data = extract_from_word(user_data[user_id]['word'])
+            print("📄 Word данные:", word_data)  # <-- Добавлено
+
             pdf_data = extract_from_pdf(user_data[user_id]['pdf'])
+            print("📄 PDF данные:", pdf_data)  # <-- Добавлено
+
             excel_data = extract_from_excel(user_data[user_id]['excel'])
+            print("📄 Excel данные:", excel_data)  # <-- Добавлено
 
             # Объединение всех данных в один словарь
             combined_data = {**word_data, **pdf_data, **excel_data}
