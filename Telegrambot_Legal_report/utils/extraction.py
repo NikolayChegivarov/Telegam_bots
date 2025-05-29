@@ -2,58 +2,50 @@
 import fitz  # PyMuPDF
 import pandas as pd
 from docx import Document
-import re
+from pprint import pprint
 
-
-def get_doc_text(file_path: str) -> str:
-    """Извлекает весь текст из документа (параграфы + таблицы)."""
-    doc = Document(file_path)
-    full_text = []
-
-    # Текст из параграфов
-    for paragraph in doc.paragraphs:
-        if paragraph.text.strip():
-            full_text.append(paragraph.text.strip())
-
-    # Текст из таблиц
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                if cell.text.strip():
-                    full_text.append(cell.text.strip())
-
-    return '\n'.join(full_text)
-
-
-def normalize_company_name(full_name: str) -> str:
-    if "Общество с ограниченной ответственностью" in full_name:
-        return full_name.replace("Общество с ограниченной ответственностью", "ООО").strip()
-    return full_name.strip()
 
 def extract_from_word(path):
-    """Извлекает базовые сведения из таблиц Word-документа Контур.Фокус."""
+    """Извлекает базовые сведения из таблиц Word-документа Контур.Фокус по содержимому ячеек с отчётностью."""
     doc = Document(path)
     data = {}
 
-    try:
-        table1 = doc.tables[0]
-        table2 = doc.tables[1]
+    # Ключевые слова и соответствующие им поля отчета
+    keywords = {
+        "Краткое наименование": "Организация",
+        "ОГРН": "ОГРН",
+        "ИНН": "ИНН",
+        "КПП": "КПП",
+        "Юр. адрес": "Юр. адрес",
+        "Дата образования": "Дата образования",  # было "Дата создания"
+        "Уставный капитал": "Уставный капитал",  # было "Размер уставного капитала"
+        "Генеральный директор": "Директор",
+        "Основной вид деятельности": "ОКВЭД",
+        "Система налогообложения": "Система налогообложения",
+        "Учредители": "Учредители и участники"
+    }
 
-        raw_name = table1.cell(0, 1).text.strip()
-        data["Организация"] = normalize_company_name(raw_name)
+    # Регистр-независимый список найденных ключей
+    found_keys = set()
 
-        data["Дата создания"] = table1.cell(0, 2).text.strip()
-        data["ИНН"] = table1.cell(14, 1).text.strip()
-        data["КПП"] = table1.cell(15, 1).text.strip()
-        data["ОГРН"] = table1.cell(16, 1).text.strip()
-        data["Юр. адрес"] = table1.cell(20, 1).text.strip()
-        data["Уставный капитал"] = table1.cell(40, 1).text.strip()
-        data["Директор"] = table1.cell(36, 1).text.strip()
-        data["ОКВЭД"] = table2.cell(2, 1).text.strip()
-        data["Учредители"] = table1.cell(2, 2).text.strip()
+    for table in doc.tables:
+        for row in table.rows:
+            if len(row.cells) < 2:
+                continue
+            key_raw = row.cells[0].text.strip().replace('\xa0', ' ')
+            value = row.cells[1].text.strip()
+            for keyword, label in keywords.items():
+                if keyword.lower() in key_raw.lower():
+                    data[label] = value
+                    found_keys.add(label)
 
-    except Exception as e:
-        print(f"❌ Ошибка при извлечении из Word: {e}")
+    # Отчёт по каждому ключу
+    print("\n🔍 Результаты извлечения:")
+    for label in keywords.values():
+        if label in data:
+            print(f"✅ {label}: {data[label]}")
+        else:
+            print(f"❌ {label} не найден")
 
     return data
 
@@ -83,6 +75,8 @@ def extract_from_pdf(path):
                     if part.replace(',', '').replace('.', '').isdigit():
                         data["Чистая прибыль"] = part
                         break
+
+    # print(data)
     return data
 
 
@@ -97,4 +91,6 @@ def extract_from_excel(path):
 
     data["Истец_дела"] = istets.to_dict(orient="records")
     data["Ответчик_дела"] = otvetchik.to_dict(orient="records")
+
+    # print(data)
     return data

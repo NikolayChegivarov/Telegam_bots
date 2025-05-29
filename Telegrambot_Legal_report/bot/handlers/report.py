@@ -11,6 +11,7 @@ import os
 from bot.state_machine import ReportState
 from utils.extraction import extract_from_word, extract_from_pdf, extract_from_excel
 from utils.recording_data import process_template
+from pprint import pprint
 
 user_states = {}
 user_data = {}
@@ -61,13 +62,16 @@ async def handle_document_upload(update: Update, context: ContextTypes.DEFAULT_T
         try:
             # Извлечение данных
             word_data = extract_from_word(user_data[user_id]['word'])
-            print("📄 Word данные:", word_data)  # <-- Добавлено
+            print("📄 Word данные:")
+            pprint(word_data)
 
             pdf_data = extract_from_pdf(user_data[user_id]['pdf'])
-            print("📄 PDF данные:", pdf_data)  # <-- Добавлено
+            print("📄 PDF данные:")
+            pprint(pdf_data)
 
             excel_data = extract_from_excel(user_data[user_id]['excel'])
-            print("📄 Excel данные:", excel_data)  # <-- Добавлено
+            print("📄 Excel данные:")
+            pprint(excel_data)
 
             # Объединение всех данных в один словарь
             combined_data = {**word_data, **pdf_data, **excel_data}
