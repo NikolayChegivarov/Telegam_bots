@@ -1,96 +1,152 @@
-# utils/extraction.py
-import fitz  # PyMuPDF
-import pandas as pd
+import os
 from docx import Document
-from pprint import pprint
+import pandas as pd
+import pdfplumber
+from dotenv import load_dotenv
+import openai
 
+# Загружаем переменные окружения из .env
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-def extract_from_word(path):
-    """Извлекает базовые сведения из таблиц Word-документа Контур.Фокус по содержимому ячеек с отчётностью."""
-    doc = Document(path)
-    data = {}
+# --- 1. Извлечение текста из файлов ---
 
-    # Ключевые слова и соответствующие им поля отчета
-    keywords = {
-        "Краткое наименование": "Организация",
-        "ОГРН": "ОГРН",
-        "ИНН": "ИНН",
-        "КПП": "КПП",
-        "Юр. адрес": "Юр. адрес",
-        "Дата образования": "Дата образования",  # было "Дата создания"
-        "Уставный капитал": "Уставный капитал",  # было "Размер уставного капитала"
-        "Генеральный директор": "Директор",
-        "Основной вид деятельности": "ОКВЭД",
-        "Система налогообложения": "Система налогообложения",
-        "Учредители": "Учредители и участники"
-    }
+def extract_text_from_docx(file_path):
+    """
+    Извлекает весь текст из Word (.docx) файла.
+    """
+    try:
+        doc = Document(file_path)
+        fullText = []
+        for para in doc.paragraphs:
+            fullText.append(para.text)
+        return '\n'.join(fullText)
+    except Exception as e:
+        return f"[Ошибка при извлечении Word: {e}]"
 
-    # Регистр-независимый список найденных ключей
-    found_keys = set()
+def extract_text_from_pdf(file_path):
+    """
+    Извлекает весь текст из PDF файла.
+    """
+    try:
+        text = ""
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + '\n'
+        return text
+    except Exception as e:
+        return f"[Ошибка при извлечении PDF: {e}]"
 
-    for table in doc.tables:
-        for row in table.rows:
-            if len(row.cells) < 2:
-                continue
-            key_raw = row.cells[0].text.strip().replace('\xa0', ' ')
-            value = row.cells[1].text.strip()
-            for keyword, label in keywords.items():
-                if keyword.lower() in key_raw.lower():
-                    data[label] = value
-                    found_keys.add(label)
+def extract_text_from_excel(file_path):
+    """
+    Извлекает данные из первой страницы Excel-файла и возвращает в виде текста (таблицы в виде строки).
+    """
+    try:
+        df = pd.read_excel(file_path)
+        return df.to_string(index=False)
+    except Exception as e:
+        return f"[Ошибка при извлечении Excel: {e}]"
 
-    # Отчёт по каждому ключу
-    print("\n🔍 Результаты извлечения:")
-    for label in keywords.values():
-        if label in data:
-            print(f"✅ {label}: {data[label]}")
+# --- 2. Формируем промпт для GPT ---
+
+def build_prompt(word_text, pdf_text, excel_text):
+    """
+    Формирует промпт для GPT с пояснениями, что извлекать.
+    """
+    prompt = f"""
+У тебя три типа данных для юридического отчета:
+
+1. Word файл «Выгрузка Контур.Фокус»:
+----------------
+{word_text}
+----------------
+
+2. PDF файл «Финансовая выгрузка из Контур.Фокус»:
+----------------
+{pdf_text}
+----------------
+
+3. Excel файл «Выгрузка арбитражных производств»:
+----------------
+{excel_text}
+----------------
+
+Твоя задача — **извлечь и структурировать** следующую информацию:
+- Наименование организации
+- ИНН
+- Руководитель/Генеральный директор
+- Финансовые показатели (выручка, чистая прибыль, активы, обязательства и т.д. — всё, что есть в отчетах)
+- Информация об арбитражных делах (номер дела, дата, суть, сумма, статус и т.д.)
+
+Верни результат СТРОГО в виде JSON следующей структуры:
+{{
+    "org_name": "",
+    "inn": "",
+    "ceo": "",
+    "financial": {{
+        "revenue": "",
+        "net_profit": "",
+        "assets": "",
+        "liabilities": "",
+        "other": ""
+    }},
+    "arbitration_cases": [
+        {{
+            "case_number": "",
+            "date": "",
+            "summary": "",
+            "amount": "",
+            "status": ""
+        }}
+    ]
+}}
+Если какая-то информация отсутствует — оставь соответствующее поле пустым.
+    """
+    return prompt
+
+# --- 3. Отправка запроса к GPT с openai 1.x.x ---
+
+def gpt_extract_data(word_text, pdf_text, excel_text):
+    """
+    Отправляет текст всех файлов в GPT и возвращает структурированный JSON.
+    """
+    prompt = build_prompt(word_text, pdf_text, excel_text)
+    if not OPENAI_API_KEY:
+        raise ValueError("OPENAI_API_KEY не найден в .env файле.")
+    try:
+        client = openai.OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o",  # Можно поменять на gpt-4, gpt-3.5-turbo, gpt-4-turbo и т.п.
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1500,
+            temperature=0
+        )
+        content = response.choices[0].message.content
+        # Обрезаем всё, кроме JSON (иногда GPT пишет лишний текст)
+        import re, json
+        json_match = re.search(r'({.*})', content, re.DOTALL)
+        if json_match:
+            json_text = json_match.group(1)
+            try:
+                data = json.loads(json_text)
+                return data
+            except json.JSONDecodeError:
+                return {"error": "Не удалось распарсить JSON из ответа GPT.", "raw": content}
         else:
-            print(f"❌ {label} не найден")
+            return {"error": "JSON не найден в ответе GPT.", "raw": content}
+    except Exception as e:
+        return {"error": f"Ошибка запроса к GPT: {e}"}
 
-    return data
+# --- 4. Главная функция для вызова из report.py ---
 
-
-def extract_from_pdf(path):
-    """Извлекает финансовые показатели из PDF-документа (Контур.Фокус)."""
-    data = {}
-    doc = fitz.open(path)
-    full_text = "\n".join(page.get_text() for page in doc)
-    doc.close()
-
-    if "EBIT" in full_text:
-        lines = full_text.splitlines()
-        for i, line in enumerate(lines):
-            if "EBIT" in line:
-                try:
-                    ebit_line = lines[i + 1]
-                    data["EBIT"] = ebit_line.strip()
-                except:
-                    pass
-
-    if "Чистая прибыль" in full_text:
-        for line in full_text.splitlines():
-            if "Чистая прибыль" in line:
-                parts = line.split()
-                for part in parts[::-1]:
-                    if part.replace(',', '').replace('.', '').isdigit():
-                        data["Чистая прибыль"] = part
-                        break
-
-    # print(data)
-    return data
-
-
-def extract_from_excel(path):
-    """Извлекает дела истцов и ответчиков из Excel-документа."""
-    data = {}
-    df = pd.read_excel(path)
-    df.columns = df.columns.str.strip()
-
-    istets = df[df['Роль'] == 'Истец'] if 'Роль' in df else pd.DataFrame()
-    otvetchik = df[df['Роль'] == 'Ответчик'] if 'Роль' in df else pd.DataFrame()
-
-    data["Истец_дела"] = istets.to_dict(orient="records")
-    data["Ответчик_дела"] = otvetchik.to_dict(orient="records")
-
-    # print(data)
-    return data
+def extract_structured_data(word_path, pdf_path, excel_path):
+    """
+    Главная функция для извлечения данных из трёх файлов с помощью GPT.
+    Возвращает словарь (структура для подстановки в шаблон).
+    """
+    word_text = extract_text_from_docx(word_path)
+    pdf_text = extract_text_from_pdf(pdf_path)
+    excel_text = extract_text_from_excel(excel_path)
+    return gpt_extract_data(word_text, pdf_text, excel_text)
