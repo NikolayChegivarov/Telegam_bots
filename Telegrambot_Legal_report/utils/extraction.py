@@ -53,7 +53,7 @@ def extract_text_from_excel(file_path):
 
 def build_prompt(word_text, pdf_text, excel_text):
     """
-    Формирует промпт для GPT с пояснениями, что извлекать.
+    Формирует промпт для GPT с пояснениями, что извлекать
     """
     prompt = f"""
 У тебя три типа данных для юридического отчета:
