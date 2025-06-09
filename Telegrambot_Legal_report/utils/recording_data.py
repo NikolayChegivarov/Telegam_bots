@@ -6,15 +6,19 @@ import re
 
 def generate_filename(data: dict):
     org_name = data.get('org_name', 'report')
-    # Удаляем все кавычки
     org_name = org_name.replace('"', '').replace("'", '')
-    # Можно дополнительно убрать другие недопустимые символы
     org_name = re.sub(r'[<>:/\\|?*]', '', org_name)
     # Дата и время для уникальности
     timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
     filename = f"{org_name}_{timestamp}.docx"
     return filename
 
+
+def safe_str(val):
+    if val is None:
+        return ""
+    s = str(val)
+    return ''.join(c for c in s if c.isprintable())
 
 def save_filled_doc(template_path: str, output_path: str, data: dict):
     if not os.path.exists(template_path):
@@ -23,7 +27,6 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
 
     table = document.tables[0]  # Первая таблица
 
-    # Соответствие: подпись в шаблоне => ключ в data
     FIELDS = {
         "Наименование:": "Полное наименование",
         "ОГРН:": "ОГРН",
@@ -40,17 +43,16 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     for row in table.rows:
         label = row.cells[0].text.strip()
         if label in FIELDS:
-            # Если значение — строка, просто берём из data
-            # Если это lambda, вызываем её
             field = FIELDS[label]
-            if callable(field):
-                value = field(data)
-            else:
-                value = data.get(field, "")
-            row.cells[1].text = str(value)
+            value = field(data) if callable(field) else data.get(field, "")
+            try:
+                row.cells[1].text = safe_str(value)
+                print(f"Записано: {label} -> {safe_str(value)}")
+            except Exception as e:
+                print(f"Ошибка при вставке '{value}' для '{label}': {e}")
 
     document.save(output_path)
     time.sleep(1)
     print(
-        f"Файл сохранён: {output_path}, существует: {os.path.exists(output_path)}, размер: {os.path.getsize(output_path)}")
-
+        f"Файл сохранён: {output_path}, существует: {os.path.exists(output_path)}, размер: {os.path.getsize(output_path)}"
+    )
