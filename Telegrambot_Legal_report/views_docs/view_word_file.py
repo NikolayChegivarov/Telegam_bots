@@ -1,8 +1,7 @@
-# Для дальнейшего парсинга таблицы:
-# Например, фильтрация по столбцу, анализ значений и пр.
 # views_docs/views_word_file.py
 from docx import Document
 import os
+
 
 def print_doc_structure(doc):
     """Выводит структуру документа в терминал"""
@@ -14,14 +13,18 @@ def print_doc_structure(doc):
                 cell_text = cell.text.replace('\n', '\\n')
                 print(f"Ячейка {row_idx}.{cell_idx}: '{cell_text}'")
 
-if __name__ == "__main__":
-    word_path = os.path.join(os.path.dirname(__file__), "word.docx")
 
-    if not os.path.exists(word_path):
-        print(f"❌ Файл не найден: {word_path}")
+if __name__ == "__main__":
+    # Получаем путь к корневой директории проекта (на два уровня выше текущего файла)
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    template_path = os.path.join(project_root, "шаблон.docx")
+
+    if not os.path.exists(template_path):
+        print(f"❌ Файл не найден: {template_path}")
+        print("Убедитесь, что файл 'шаблон.docx' находится в корне проекта")
     else:
         try:
-            document = Document(word_path)
+            document = Document(template_path)
             print_doc_structure(document)
         except Exception as e:
             print(f"❌ Ошибка при открытии документа: {e}")

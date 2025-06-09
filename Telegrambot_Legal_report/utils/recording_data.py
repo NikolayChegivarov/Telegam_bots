@@ -1,14 +1,19 @@
 import os
 from docx import Document
+import time
+from datetime import datetime
+import re
 
-def generate_filename(data: dict) -> str:
-    """
-    Генерирует имя файла отчета на основе названия организации.
-    Пример: "ООО Новые Технологии.docx"
-    """
+def generate_filename(data: dict):
     org_name = data.get('org_name', 'report')
-    safe_name = "".join(c for c in org_name if c.isalnum() or c in (' ', '_')).rstrip()
-    return f"{safe_name}.docx"
+    # Удаляем все кавычки
+    org_name = org_name.replace('"', '').replace("'", '')
+    # Можно дополнительно убрать другие недопустимые символы
+    org_name = re.sub(r'[<>:/\\|?*]', '', org_name)
+    # Дата и время для уникальности
+    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
+    filename = f"{org_name}_{timestamp}.docx"
+    return filename
 
 
 def save_filled_doc(template_path: str, output_path: str, data: dict):
@@ -18,26 +23,34 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
 
     table = document.tables[0]  # Первая таблица
 
-    # Сопоставление ключей из data и текста в ячейке таблицы
-    FIELD_MAPPING = {
-        'Полное наименование': 'Полное наименование',
-        'Краткое наименование': 'Краткое наименование',
-        'ИНН': 'ИНН',
-        'КПП': 'КПП',
-        'ОГРН': 'ОГРН',
-        'Дата образования': 'Дата образования',
-        'Юр. адрес': 'Юр. адрес',
-        'Генеральный директор': 'Генеральный директор',
-        # ... добавить другие поля по мере необходимости
+    # Соответствие: подпись в шаблоне => ключ в data
+    FIELDS = {
+        "Наименование:": "Полное наименование",
+        "ОГРН:": "ОГРН",
+        "ИНН/КПП:": lambda d: f"{d.get('ИНН', '')} / {d.get('КПП', '')}",
+        "Юридический адрес:": "Юр. адрес",
+        "Дата создания:": "Дата образования",
+        "Учредители/участники (текущие):": "Учредители/участники (текущие)",
+        "Размер уставного капитала:": "Размер уставного капитала",
+        "Генеральный директор:": "Генеральный директор",
+        "ОКВЭД (основной)": "ОКВЭД (основной)",
+        "Система налогообложения": "Система налогообложения"
     }
 
     for row in table.rows:
-        field = row.cells[0].text.strip()
-        if field in FIELD_MAPPING:
-            key = FIELD_MAPPING[field]
-            value = data.get(key, "")
-            # Заполняем значение во второй ячейке (index 1)
+        label = row.cells[0].text.strip()
+        if label in FIELDS:
+            # Если значение — строка, просто берём из data
+            # Если это lambda, вызываем её
+            field = FIELDS[label]
+            if callable(field):
+                value = field(data)
+            else:
+                value = data.get(field, "")
             row.cells[1].text = str(value)
 
     document.save(output_path)
+    time.sleep(1)
+    print(
+        f"Файл сохранён: {output_path}, существует: {os.path.exists(output_path)}, размер: {os.path.getsize(output_path)}")
 

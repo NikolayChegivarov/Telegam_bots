@@ -140,7 +140,13 @@ async def receive_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
         save_filled_doc(TEMPLATE_PATH, output_path, combined_data)
         print(f"Сохранили новый файл {os.path.basename(output_path)} в папку Reports")
 
-        await update.message.reply_document(InputFile(output_path))
+        await update.message.reply_document(
+            InputFile(
+                output_path,
+                filename=os.path.basename(output_path)
+            )
+        )
+
         await update.message.reply_text("✅ Отчет успешно сформирован и отправлен вам.")
 
         write_to_history(combined_data['org_name'], output_path)
