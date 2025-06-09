@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from database.database_interaction import DatabaseInteraction
 from keyboards import get_admin_keyboard, administrative_keyboard, get_auth_keyboard
-from history.history_manager import read_history
+from database.history_manager import read_history
 
 
 async def handle_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):

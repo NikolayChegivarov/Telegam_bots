@@ -1,43 +1,43 @@
 import os
 from docx import Document
-from history.history_manager import write_to_history
+
+def generate_filename(data: dict) -> str:
+    """
+    Генерирует имя файла отчета на основе названия организации.
+    Пример: "ООО Новые Технологии.docx"
+    """
+    org_name = data.get('org_name', 'report')
+    safe_name = "".join(c for c in org_name if c.isalnum() or c in (' ', '_')).rstrip()
+    return f"{safe_name}.docx"
 
 
-def process_template(template_path: str, output_dir: str, org_data: dict) -> str | None:
+def save_filled_doc(template_path: str, output_path: str, data: dict):
     if not os.path.exists(template_path):
-        print(f"❌ ОШИБКА: Файл шаблона не найден: {template_path}")
-        return False
+        raise FileNotFoundError("❌ Не обнаружен шаблон.docx")
+    document = Document(template_path)
 
-    try:
-        doc = Document(template_path)
-    except Exception:
-        return None
+    table = document.tables[0]  # Первая таблица
 
-    # Первая таблица шаблона — "Общие сведения"
-    try:
-        table = doc.tables[0]
-        table.cell(0, 1).text = org_data.get('Организация', '—')
-        table.cell(1, 1).text = org_data.get('ОГРН', '—')
-        table.cell(2, 1).text = f"{org_data.get('ИНН', '')}/{org_data.get('КПП', '')}"
-        table.cell(3, 1).text = org_data.get('Юр. адрес', '—')
-        table.cell(4, 1).text = org_data.get('Дата создания', '—')
-        table.cell(5, 1).text = org_data.get('Учредители', '—')
-        table.cell(6, 1).text = org_data.get('Уставный капитал', '—')
-        table.cell(7, 1).text = org_data.get('Директор', '—')
-        table.cell(8, 1).text = org_data.get('ОКВЭД', '—')
-        table.cell(9, 1).text = org_data.get('Система налогообложения', '—')
-    except Exception:
-        return None
+    # Сопоставление ключей из data и текста в ячейке таблицы
+    FIELD_MAPPING = {
+        'Полное наименование': 'Полное наименование',
+        'Краткое наименование': 'Краткое наименование',
+        'ИНН': 'ИНН',
+        'КПП': 'КПП',
+        'ОГРН': 'ОГРН',
+        'Дата образования': 'Дата образования',
+        'Юр. адрес': 'Юр. адрес',
+        'Генеральный директор': 'Генеральный директор',
+        # ... добавить другие поля по мере необходимости
+    }
 
-    os.makedirs(output_dir, exist_ok=True)
+    for row in table.rows:
+        field = row.cells[0].text.strip()
+        if field in FIELD_MAPPING:
+            key = FIELD_MAPPING[field]
+            value = data.get(key, "")
+            # Заполняем значение во второй ячейке (index 1)
+            row.cells[1].text = str(value)
 
-    clean_name = "".join(c for c in org_data.get("Организация", "Отчет") if c.isalnum() or c in (' ', '_', '-')).strip()
-    filename = f"{clean_name[:50]}.docx"
-    output_path = os.path.join(output_dir, filename)
+    document.save(output_path)
 
-    try:
-        doc.save(output_path)
-        write_to_history(org_data.get("Организация", "Неизвестная организация"))
-        return output_path
-    except Exception:
-        return None

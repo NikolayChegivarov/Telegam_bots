@@ -21,22 +21,60 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"Пользователь {user_id} начал взаимодействие с ботом")
 
     try:
-        if db.is_admin(user_id):
-            await update.message.reply_text("Добро пожаловать, администратор", reply_markup=get_admin_keyboard())
-        else:
-            status = db.check_user_status(user_id)
-            if status == "Активный":
-                await update.message.reply_text("Начнем работу!", reply_markup=get_user_keyboard())
+        if not db.user_exists(user_id):
+            # Пользователь не существует в БД
+            if db.is_admin(user_id):
+                # Если администратор добавляем в бд, даем "Активный"
+                db.add_user(user_id, first_name, last_name)
+                db.update_user_status(user_id, "Активный")
+                await update.message.reply_text(
+                    "Вы добавлены как администратор.",
+                    reply_markup=get_admin_keyboard()
+                )
             else:
+                # Если новый пользователь.
                 await update.message.reply_text(
                     "Привет. Я бот для заполнения шаблона юридической информацией. "
                     "Для авторизации нажмите АВТОРИЗОВАТЬСЯ.",
                     reply_markup=get_blocked_keyboard()
                 )
+            return
+
+        # Пользователь есть в БД
+
+        # Проверка на админа
+        if db.is_admin(user_id):
+            await update.message.reply_text(
+                "Добро пожаловать, администратор.",
+                reply_markup=get_admin_keyboard()
+            )
+            return
+
+        status = db.check_user_status(user_id)
+
+        if status == "Активный":
+            await update.message.reply_text(
+                "Добро пожаловать! Вы можете приступить к работе.",
+                reply_markup=get_user_keyboard()
+            )
+        elif status == "В ожидании":
+            await update.message.reply_text(
+                "Вы уже отправляли заявку. Ожидайте подтверждения от администратора."
+            )
+        elif status == "Заблокированный":
+            await update.message.reply_text(
+                "❌ Вам ограничили доступ к сервису."
+            )
+        else:
+            await update.message.reply_text(
+                "⚠️ Неизвестный статус. Обратитесь к администратору."
+            )
     except Exception as e:
         print(f"Ошибка в start: {e}")
+        await update.message.reply_text("Произошла ошибка. Попробуйте позже.")
     finally:
         db.close()
+
 
 
 # 👤 Пользователь нажал кнопку "Авторизоваться"

@@ -1,3 +1,5 @@
+# Для дальнейшего парсинга таблицы:
+# Например, фильтрация по столбцу, анализ значений и пр.
 # views_docs/views_word_file.py
 from docx import Document
 import os

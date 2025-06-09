@@ -7,6 +7,10 @@ load_dotenv()
 
 class DatabaseInteraction:
     def __init__(self):
+        """
+        Инициализирует соединение с базой данных PostgreSQL.
+        Использует параметры из переменных окружения.
+        """
         self.conn = psycopg2.connect(
             host=os.getenv('HOST'),
             database=os.getenv('DB_NAME'),
@@ -16,19 +20,47 @@ class DatabaseInteraction:
         )
         self.cursor = self.conn.cursor()
 
+    def user_exists(self, user_id: int) -> bool:
+        """
+        Проверяет наличие пользователя в базе данных по ID Telegram.
+
+        :param user_id: ID пользователя в Telegram
+        :return: True если пользователь существует, False если нет
+        """
+        query = "SELECT 1 FROM users WHERE id_user_telegram = %s"
+        self.cursor.execute(query, (user_id,))
+        return bool(self.cursor.fetchone())
+
     def check_user_status(self, user_id):
-        """Проверяет статус пользователя в базе данных."""
+        """
+        Возвращает статус пользователя из базы данных.
+
+        :param user_id: ID пользователя в Telegram
+        :return: Строка со статусом пользователя или None, если пользователь не найден
+        """
         query = "SELECT status FROM users WHERE id_user_telegram = %s"
         self.cursor.execute(query, (user_id,))
         result = self.cursor.fetchone()
         return result[0] if result else None
 
     def is_admin(self, user_id):
-        """Проверяет, является ли пользователь администратором."""
+        """
+        Проверяет, является ли пользователь администратором.
+
+        :param user_id: ID пользователя в Telegram
+        :return: True если пользователь является администратором, False если нет
+        """
         return str(user_id) == os.getenv('ADMIN')
 
     def add_user(self, user_id, first_name, last_name):
-        """Добавляет нового пользователя в базу данных."""
+        """
+        Добавляет нового пользователя в базу данных.
+        Если пользователь уже существует, не производит никаких действий.
+
+        :param user_id: ID пользователя в Telegram
+        :param first_name: Имя пользователя
+        :param last_name: Фамилия пользователя
+        """
         query = """
         INSERT INTO users (id_user_telegram, first_name, last_name)
         VALUES (%s, %s, %s)
@@ -37,23 +69,13 @@ class DatabaseInteraction:
         self.cursor.execute(query, (user_id, first_name, last_name))
         self.conn.commit()
 
-    def close(self):
-        """Закрывает соединение с базой данных."""
-        self.cursor.close()
-        self.conn.close()
-
-    def get_blocked_users(self):
-        """Возвращает список заблокированных пользователей."""
-        query = """
-        SELECT id_user_telegram, first_name, last_name 
-        FROM users 
-        WHERE status = 'Заблокированный'
-        """
-        self.cursor.execute(query)
-        return self.cursor.fetchall()
-
     def update_user_status(self, user_id, status):
-        """Обновляет статус пользователя."""
+        """
+        Обновляет статус пользователя в базе данных.
+
+        :param user_id: ID пользователя в Telegram
+        :param status: Новый статус пользователя
+        """
         query = """
         UPDATE users
         SET status = %s
@@ -62,8 +84,26 @@ class DatabaseInteraction:
         self.cursor.execute(query, (status, user_id))
         self.conn.commit()
 
+    def get_blocked_users(self):
+        """
+        Возвращает список всех заблокированных пользователей.
+
+        :return: Список кортежей с данными пользователей (id, имя, фамилия)
+        """
+        query = """
+        SELECT id_user_telegram, first_name, last_name 
+        FROM users 
+        WHERE status = 'Заблокированный'
+        """
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
     def get_active_users(self):
-        """Возвращает список активных пользователей."""
+        """
+        Возвращает список всех активных пользователей.
+
+        :return: Список кортежей с данными пользователей (id, имя, фамилия)
+        """
         query = """
         SELECT id_user_telegram, first_name, last_name 
         FROM users 
@@ -71,3 +111,11 @@ class DatabaseInteraction:
         """
         self.cursor.execute(query)
         return self.cursor.fetchall()
+
+    def close(self):
+        """
+        Закрывает соединение с базой данных.
+        Всегда вызывайте этот метод при завершении работы с классом.
+        """
+        self.cursor.close()
+        self.conn.close()
