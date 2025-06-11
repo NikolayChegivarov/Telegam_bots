@@ -5,6 +5,19 @@ from docx.oxml.ns import qn
 import os
 import re
 
+def split_director_info(text):
+    """Возвращает словарь с ФИО и ИНН, очищает пробелы и неразрывные пробелы."""
+    cleaned = re.sub(r'[\u00A0\s]', '', text)  # удаляем пробелы и неразрывные пробелы
+    match = re.search(r'(\d{10}|\d{12})', cleaned)
+
+    if match:
+        inn = match.group(1)
+        # найти, где начинается ИНН, и отрезать всё до него для ФИО
+        raw_fio = text[:text.find('ИНН')].strip(' ,')
+        return {'ФИО': raw_fio, 'ИНН': inn}
+    else:
+        return {'ФИО': text.strip(), 'ИНН': ''}
+
 
 def is_strikethrough(run):
     """Проверяет, является ли текст зачеркнутым."""
@@ -51,30 +64,39 @@ def extract_table_text_without_strikethrough(table):
 
 
 def extract_basic_info(doc):
-    """Извлекает основную информацию о компании."""
+    """Извлекает основную информацию о компании, включая ФИО директора и все строки юр. адреса."""
     basic_info = {
         'Краткое наименование': '',
         'ИНН': '',
         'КПП': '',
         'ОГРН': '',
         'Дата образования': '',
-        'Юридический адрес': '',
+        'Юридический адрес': [],
         'Уставный капитал': '',
         'Генеральный директор': '',
         'ОКВЭД(основной)': ''
     }
+
+    def extract_text_from_cell(cell):
+        """Извлекает весь текст из ячейки, включая переносы строк между абзацами."""
+        return '\n'.join(
+            paragraph.text.strip()
+            for paragraph in cell.paragraphs
+            if paragraph.text.strip()
+        ).strip()
 
     for table in doc.tables:
         for row in table.rows:
             if len(row.cells) < 2:
                 continue
 
-            key = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip() if row.cells[
-                0].paragraphs else ''
-            value = extract_text_without_strikethrough(row.cells[1].paragraphs[0]).strip() if row.cells[
-                1].paragraphs else ''
+            key = extract_text_from_cell(row.cells[0])
+            value = extract_text_from_cell(row.cells[1])
 
-            if key == "Краткое наименование":
+            if not key and not value:
+                continue
+
+            if "Краткое наименование" in key:
                 basic_info['Краткое наименование'] = value
             elif key == "ИНН":
                 basic_info['ИНН'] = value
@@ -82,16 +104,20 @@ def extract_basic_info(doc):
                 basic_info['КПП'] = value
             elif key == "ОГРН":
                 basic_info['ОГРН'] = value
-            elif key == "Дата образования":
+            elif "Дата образования" in key:
                 basic_info['Дата образования'] = value
-            elif key in ["Юр. адрес", "Юридический адрес"]:
-                basic_info['Юридический адрес'] = value
-            elif key == "Уставный капитал":
+            elif "Юр. адрес" in key or "Юридический адрес" in key:
+                if value:
+                    basic_info['Юридический адрес'].extend(value.split('\n'))
+            elif "Уставный капитал" in key:
                 basic_info['Уставный капитал'] = value
-            elif key == "Генеральный директор":
-                basic_info['Генеральный директор'] = value
-            elif key == "Основной вид деятельности":
+            elif "Генеральный директор" in key:
+                basic_info['Генеральный директор'] = split_director_info(value)
+            elif "Основной вид деятельности" in key:
                 basic_info['ОКВЭД(основной)'] = value
+
+    # Очистка и объединение юр. адресов
+    basic_info['Юридический адрес'] = ', '.join(addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
 
     return basic_info
 
