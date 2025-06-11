@@ -264,46 +264,56 @@ def extract_founders(doc):
 
 
 def extract_collaterals(doc):
-    """Извлекает информацию о залогах."""
+    """Извлекает информацию о залогах из таблиц с парами 'ключ-значение'."""
     collaterals = []
-    all_text = []
 
-    for para in doc.paragraphs:
-        text = extract_text_without_strikethrough(para)
-        if text.strip():
-            all_text.append(text)
+    keys_map = {
+        'Залогодатель': 'pledger',
+        'Залогодержатель': 'holder',
+        'Договор': 'contract',
+        'Срок исполнения': 'term',
+        'Тип имущества': 'asset_type',
+        'Описание': 'asset',
+    }
+
+    date_regnum_pattern = re.compile(r'(\d{2}\.\d{2}\.\d{4})\s+([\d\-]+)')
 
     for table in doc.tables:
-        all_text.append(extract_table_text_without_strikethrough(table))
-
-    text = '\n'.join(all_text)
-
-    collateral_pattern = re.compile(
-        r'(?P<date>\d{2}\.\d{2}\.\d{4})\s+(?P<regnum>\S+)\s*'
-        r'(?:\s*Залогодатель[^\n]*\n(?P<pledger>.*?)\n)?'
-        r'(?:\s*Залогодержатель[^\n]*\n(?P<holder>.*?)\n)?'
-        r'(?:\s*Договор[^\n]*\n(?P<contract>.*?)\n)?'
-        r'(?:\s*Срок исполнения[^\n]*\n(?P<term>.*?)\n)?'
-        r'(?:\s*Тип имущества[^\n]*\n(?P<asset_type>.*?)\n)?'
-        r'(?:\s*Описание[^\n]*\n(?P<asset>.*?))'
-        r'(?:\n{2,}|$)',
-        re.DOTALL | re.MULTILINE
-    )
-
-    for m in collateral_pattern.finditer(text):
-        entry = {
-            'date': m.group('date').strip() if m.group('date') else '',
-            'regnum': m.group('regnum').strip() if m.group('regnum') else '',
-            'pledger': m.group('pledger').strip() if m.group('pledger') else '',
-            'holder': m.group('holder').strip() if m.group('holder') else '',
-            'contract': m.group('contract').strip() if m.group('contract') else '',
-            'term': m.group('term').strip() if m.group('term') else '',
-            'asset_type': m.group('asset_type').strip() if m.group('asset_type') else '',
-            'asset': m.group('asset').strip() if m.group('asset') else '',
+        collateral_entry = {
+            'date': '',
+            'regnum': '',
+            'pledger': '',
+            'holder': '',
+            'contract': '',
+            'term': '',
+            'asset_type': '',
+            'asset': ''
         }
-        entry['asset'] = re.split(r'\n\d{2}\.\d{2}\.\d{4}\s+\S+', entry['asset'])[0].strip()
-        if entry['date'] and (entry['holder'] or entry['asset']):
-            collaterals.append(entry)
+        found_fields = 0
+
+        for row in table.rows:
+            cells = row.cells
+            if len(cells) < 2:
+                continue
+
+            left = extract_text_without_strikethrough(cells[0].paragraphs[0]).strip() if cells[0].paragraphs else ''
+            right = extract_text_without_strikethrough(cells[1].paragraphs[0]).strip() if cells[1].paragraphs else ''
+
+            if not collateral_entry['date'] or not collateral_entry['regnum']:
+                date_match = date_regnum_pattern.search(left + ' ' + right)
+                if date_match:
+                    collateral_entry['date'] = date_match.group(1)
+                    collateral_entry['regnum'] = date_match.group(2)
+                    continue
+
+            for label, key in keys_map.items():
+                if label.lower() in left.lower():
+                    collateral_entry[key] = right
+                    found_fields += 1
+
+        if collateral_entry['date'] and (collateral_entry['asset'] or collateral_entry['holder']):
+            collaterals.append(collateral_entry)
+
     return collaterals
 
 
