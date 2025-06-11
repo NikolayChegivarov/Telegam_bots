@@ -5,6 +5,22 @@ from docx.oxml.ns import qn
 import os
 import re
 
+def extract_inn_ogrn(text):
+    """Извлекает ИНН и ОГРН из строки и возвращает очищенный текст без ИНН/ОГРН, а также отдельные значения."""
+    inn_match = re.search(r'\bИНН[\s:\xa0]*([0-9]{10,12})\b', text)
+    ogrn_match = re.search(r'\bОГРН[\s:\xa0]*([0-9]{13})\b', text)
+
+    inn = inn_match.group(1) if inn_match else ''
+    ogrn = ogrn_match.group(1) if ogrn_match else ''
+
+    # Удалим из строки все фрагменты с ИНН и ОГРН
+    cleaned_text = re.sub(r'ИНН[\s:\xa0]*[0-9]{10,12}', '', text)
+    cleaned_text = re.sub(r'ОГРН[\s:\xa0]*[0-9]{13}', '', cleaned_text)
+    cleaned_text = cleaned_text.strip(" ,–—\u2002")
+
+    return cleaned_text, inn, ogrn
+
+
 def extract_competitive_manager(doc):
     """Извлекает информацию о конкурсном управляющем из таблиц документа."""
     target_keys = [
@@ -294,10 +310,14 @@ def extract_founders(doc):
                         date = candidate
                         i += 1
 
+            name_clean, inn, _ = extract_inn_ogrn(name)
+            full_name = f"{name_clean}, ИНН {inn}".strip(', ') if inn else name_clean
+
+            # Формирование записи
             record = {
                 "Доля в %": share,
                 "Доля в руб": clean_sum_text(summ),
-                "Наимен. и реквизиты": name,
+                "Наимен. и реквизиты": full_name,
                 "Дата": date
             }
 
@@ -396,7 +416,8 @@ def extract_leasing_info(doc):
                 if "Сведения скрыты" in value:
                     data["Лизингодатель"] = "Сведения скрыты"
                 else:
-                    data["Лизингодатель"] = value.split("— ИНН")[0].strip() or value.strip()
+                    name, inn, ogrn = extract_inn_ogrn(value)
+                    data["Лизингодатель"] = f"{name}, ИНН {inn}, ОГРН {ogrn}".strip(', ')
             elif key.startswith("период лизинга"):
                 data["Период лизинга"] = value
             elif key.startswith("категория"):

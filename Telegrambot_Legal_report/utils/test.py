@@ -5,6 +5,22 @@ from docx.oxml.ns import qn
 import os
 import re
 
+def extract_inn_ogrn(text):
+    """Извлекает ИНН и ОГРН из строки и возвращает очищенный текст без ИНН/ОГРН, а также отдельные значения."""
+    inn_match = re.search(r'\bИНН[\s:\xa0]*([0-9]{10,12})\b', text)
+    ogrn_match = re.search(r'\bОГРН[\s:\xa0]*([0-9]{13})\b', text)
+
+    inn = inn_match.group(1) if inn_match else ''
+    ogrn = ogrn_match.group(1) if ogrn_match else ''
+
+    # Удалим из строки все фрагменты с ИНН и ОГРН
+    cleaned_text = re.sub(r'ИНН[\s:\xa0]*[0-9]{10,12}', '', text)
+    cleaned_text = re.sub(r'ОГРН[\s:\xa0]*[0-9]{13}', '', cleaned_text)
+    cleaned_text = cleaned_text.strip(" ,–—\u2002")
+
+    return cleaned_text, inn, ogrn
+
+
 def extract_competitive_manager(doc):
     """Извлекает информацию о конкурсном управляющем из таблиц документа."""
     target_keys = [
@@ -107,7 +123,7 @@ def extract_basic_info(doc):
     def extract_text_from_cell(cell):
         """Извлекает весь текст из ячейки, включая переносы строк между абзацами."""
         return '\n'.join(
-            extract_text_without_strikethrough(paragraph).strip()
+            paragraph.text.strip()
             for paragraph in cell.paragraphs
             if paragraph.text.strip()
         ).strip()
@@ -241,79 +257,53 @@ def extract_staff_info(doc):
 
 
 def extract_founders(doc):
-    """Извлекает информацию об учредителях, деля их на актуальных и неактуальных по зачеркнутости ФИО или отсутствию доли."""
-    actual = []
-    outdated = []
-
+    """Извлекает информацию об учредителях."""
+    founders = []
     for table in doc.tables:
         header = [extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower()
                   for cell in table.rows[0].cells if cell.paragraphs]
 
         col_map = {'share': None, 'sum': None, 'name': None, 'date': None}
         for idx, text in enumerate(header):
-            if 'доля' in text and '%' in text:
+            if 'доля в %' in text or 'доля (%)' in text:
                 col_map['share'] = idx
-            elif 'руб' in text or 'вклад' in text or 'сумма' in text:
+            elif 'доля в руб' in text or 'вклад' in text or 'сумма' in text:
                 col_map['sum'] = idx
-            elif 'участник' in text or 'наименование' in text or 'фио' in text:
+            elif 'наименование' in text or 'участник' in text or 'фио' in text:
                 col_map['name'] = idx
             elif 'дата' in text:
                 col_map['date'] = idx
 
-        if not all(col_map[k] is not None for k in ('share', 'sum', 'name')):
-            continue
+        if col_map['share'] is not None and col_map['sum'] is not None and col_map['name'] is not None:
+            i = 1
+            while i < len(table.rows):
+                row = table.rows[i]
+                cells = row.cells
+                get_cell = lambda idx: extract_text_without_strikethrough(cells[idx].paragraphs[0]).strip() \
+                    if idx is not None and idx < len(cells) and cells[idx].paragraphs else ''
 
-        i = 1
-        while i < len(table.rows):
-            row = table.rows[i]
-            cells = row.cells
+                share = get_cell(col_map['share'])
+                summ = get_cell(col_map['sum'])
+                name = get_cell(col_map['name'])
+                date = get_cell(col_map['date']) if col_map['date'] is not None else ''
 
-            def get_full_text(cell):
-                return '\n'.join(p.text.strip() for p in cell.paragraphs if p.text.strip()).strip()
-
-            def has_strikethrough(cell):
-                for p in cell.paragraphs:
-                    for run in p.runs:
-                        if is_strikethrough(run) and run.text.strip():
-                            return True
-                return False
-
-            share = get_full_text(cells[col_map['share']]) if col_map['share'] < len(cells) else ''
-            summ = get_full_text(cells[col_map['sum']]) if col_map['sum'] < len(cells) else ''
-            name_cell = cells[col_map['name']] if col_map['name'] < len(cells) else None
-            name = get_full_text(name_cell) if name_cell else ''
-            has_strike = has_strikethrough(name_cell) if name_cell else False
-            date = get_full_text(cells[col_map['date']]) if col_map['date'] is not None and col_map['date'] < len(cells) else ''
-
-            # Попытка взять дату из следующей строки
-            if not date and i + 1 < len(table.rows):
-                next_row = table.rows[i + 1]
-                if next_row.cells and next_row.cells[0].paragraphs:
-                    candidate = extract_text_without_strikethrough(next_row.cells[0].paragraphs[0]).strip()
-                    if re.match(r'\d{2}\.\d{2}\.\d{4}', candidate):
-                        date = candidate
+                if not date and i + 1 < len(table.rows):
+                    next_row = table.rows[i + 1]
+                    if (len(next_row.cells) > 0 and
+                            re.match(r'\d{2}\.\d{2}\.\d{4}',
+                                     extract_text_without_strikethrough(next_row.cells[0].paragraphs[0]).strip())):
+                        date = extract_text_without_strikethrough(next_row.cells[0].paragraphs[0]).strip()
                         i += 1
 
-            record = {
-                "Доля в %": share,
-                "Доля в руб": clean_sum_text(summ),
-                "Наимен. и реквизиты": name,
-                "Дата": date
-            }
-
-            if any(record.values()):
-                # Критерий неактуальности: зачёркнут ИЛИ доля отсутствует/равна '–'
-                if has_strike or share.strip() == '–' or not share.strip():
-                    outdated.append(record)
-                else:
-                    actual.append(record)
-
-            i += 1
-
-    return {
-        "Актуальные участники": actual,
-        "Неактуальные участники": outdated
-    }
+                if share or summ or name:
+                    founders.append({
+                        "share": share,
+                        "sum": clean_sum_text(summ),
+                        "name": name,
+                        "date": date,
+                    })
+                i += 1
+    return founders
 
 
 def extract_collaterals(doc):
@@ -396,7 +386,8 @@ def extract_leasing_info(doc):
                 if "Сведения скрыты" in value:
                     data["Лизингодатель"] = "Сведения скрыты"
                 else:
-                    data["Лизингодатель"] = value.split("— ИНН")[0].strip() or value.strip()
+                    name, inn, ogrn = extract_inn_ogrn(value)
+                    data["Лизингодатель"] = f"{name}, ИНН {inn}, ОГРН {ogrn}".strip(', ')
             elif key.startswith("период лизинга"):
                 data["Период лизинга"] = value
             elif key.startswith("категория"):
@@ -602,7 +593,7 @@ def parsing_all_docx(docx_path):
         # Объединение данных
         company_data.update(basic_info)
         company_data['Сведения о сотрудниках'] = staff_info
-        company_data['Учредители/участники'] = extract_founders(doc)
+        company_data['Учредители/участники'] = founders
         company_data['Сведения о залогах'] = collaterals
         company_data['Сведения о лизинге'] = leasing_info
         company_data['Кредиторская задолженность'] = credit_debt
