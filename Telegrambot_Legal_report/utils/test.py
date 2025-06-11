@@ -5,6 +5,19 @@ from docx.oxml.ns import qn
 import os
 import re
 
+def split_director_info(text):
+    """Возвращает словарь с ФИО и ИНН, очищает пробелы и неразрывные пробелы."""
+    cleaned = re.sub(r'[\u00A0\s]', '', text)  # удаляем пробелы и неразрывные пробелы
+    match = re.search(r'(\d{10}|\d{12})', cleaned)
+
+    if match:
+        inn = match.group(1)
+        # найти, где начинается ИНН, и отрезать всё до него для ФИО
+        raw_fio = text[:text.find('ИНН')].strip(' ,')
+        return {'ФИО': raw_fio, 'ИНН': inn}
+    else:
+        return {'ФИО': text.strip(), 'ИНН': ''}
+
 
 def is_strikethrough(run):
     """Проверяет, является ли текст зачеркнутым."""
@@ -51,30 +64,39 @@ def extract_table_text_without_strikethrough(table):
 
 
 def extract_basic_info(doc):
-    """Извлекает основную информацию о компании."""
+    """Извлекает основную информацию о компании, включая ФИО директора и все строки юр. адреса."""
     basic_info = {
         'Краткое наименование': '',
         'ИНН': '',
         'КПП': '',
         'ОГРН': '',
         'Дата образования': '',
-        'Юридический адрес': '',
+        'Юридический адрес': [],
         'Уставный капитал': '',
         'Генеральный директор': '',
         'ОКВЭД(основной)': ''
     }
+
+    def extract_text_from_cell(cell):
+        """Извлекает весь текст из ячейки, включая переносы строк между абзацами."""
+        return '\n'.join(
+            paragraph.text.strip()
+            for paragraph in cell.paragraphs
+            if paragraph.text.strip()
+        ).strip()
 
     for table in doc.tables:
         for row in table.rows:
             if len(row.cells) < 2:
                 continue
 
-            key = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip() if row.cells[
-                0].paragraphs else ''
-            value = extract_text_without_strikethrough(row.cells[1].paragraphs[0]).strip() if row.cells[
-                1].paragraphs else ''
+            key = extract_text_from_cell(row.cells[0])
+            value = extract_text_from_cell(row.cells[1])
 
-            if key == "Краткое наименование":
+            if not key and not value:
+                continue
+
+            if "Краткое наименование" in key:
                 basic_info['Краткое наименование'] = value
             elif key == "ИНН":
                 basic_info['ИНН'] = value
@@ -82,16 +104,20 @@ def extract_basic_info(doc):
                 basic_info['КПП'] = value
             elif key == "ОГРН":
                 basic_info['ОГРН'] = value
-            elif key == "Дата образования":
+            elif "Дата образования" in key:
                 basic_info['Дата образования'] = value
-            elif key in ["Юр. адрес", "Юридический адрес"]:
-                basic_info['Юридический адрес'] = value
-            elif key == "Уставный капитал":
+            elif "Юр. адрес" in key or "Юридический адрес" in key:
+                if value:
+                    basic_info['Юридический адрес'].extend(value.split('\n'))
+            elif "Уставный капитал" in key:
                 basic_info['Уставный капитал'] = value
-            elif key == "Генеральный директор":
-                basic_info['Генеральный директор'] = value
-            elif key == "Основной вид деятельности":
+            elif "Генеральный директор" in key:
+                basic_info['Генеральный директор'] = split_director_info(value)
+            elif "Основной вид деятельности" in key:
                 basic_info['ОКВЭД(основной)'] = value
+
+    # Очистка и объединение юр. адресов
+    basic_info['Юридический адрес'] = ', '.join(addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
 
     return basic_info
 
@@ -238,46 +264,56 @@ def extract_founders(doc):
 
 
 def extract_collaterals(doc):
-    """Извлекает информацию о залогах."""
+    """Извлекает информацию о залогах из таблиц с парами 'ключ-значение'."""
     collaterals = []
-    all_text = []
 
-    for para in doc.paragraphs:
-        text = extract_text_without_strikethrough(para)
-        if text.strip():
-            all_text.append(text)
+    keys_map = {
+        'Залогодатель': 'pledger',
+        'Залогодержатель': 'holder',
+        'Договор': 'contract',
+        'Срок исполнения': 'term',
+        'Тип имущества': 'asset_type',
+        'Описание': 'asset',
+    }
+
+    date_regnum_pattern = re.compile(r'(\d{2}\.\d{2}\.\d{4})\s+([\d\-]+)')
 
     for table in doc.tables:
-        all_text.append(extract_table_text_without_strikethrough(table))
-
-    text = '\n'.join(all_text)
-
-    collateral_pattern = re.compile(
-        r'(?P<date>\d{2}\.\d{2}\.\d{4})\s+(?P<regnum>\S+)\s*'
-        r'(?:\s*Залогодатель[^\n]*\n(?P<pledger>.*?)\n)?'
-        r'(?:\s*Залогодержатель[^\n]*\n(?P<holder>.*?)\n)?'
-        r'(?:\s*Договор[^\n]*\n(?P<contract>.*?)\n)?'
-        r'(?:\s*Срок исполнения[^\n]*\n(?P<term>.*?)\n)?'
-        r'(?:\s*Тип имущества[^\n]*\n(?P<asset_type>.*?)\n)?'
-        r'(?:\s*Описание[^\n]*\n(?P<asset>.*?))'
-        r'(?:\n{2,}|$)',
-        re.DOTALL | re.MULTILINE
-    )
-
-    for m in collateral_pattern.finditer(text):
-        entry = {
-            'date': m.group('date').strip() if m.group('date') else '',
-            'regnum': m.group('regnum').strip() if m.group('regnum') else '',
-            'pledger': m.group('pledger').strip() if m.group('pledger') else '',
-            'holder': m.group('holder').strip() if m.group('holder') else '',
-            'contract': m.group('contract').strip() if m.group('contract') else '',
-            'term': m.group('term').strip() if m.group('term') else '',
-            'asset_type': m.group('asset_type').strip() if m.group('asset_type') else '',
-            'asset': m.group('asset').strip() if m.group('asset') else '',
+        collateral_entry = {
+            'date': '',
+            'regnum': '',
+            'pledger': '',
+            'holder': '',
+            'contract': '',
+            'term': '',
+            'asset_type': '',
+            'asset': ''
         }
-        entry['asset'] = re.split(r'\n\d{2}\.\d{2}\.\d{4}\s+\S+', entry['asset'])[0].strip()
-        if entry['date'] and (entry['holder'] or entry['asset']):
-            collaterals.append(entry)
+        found_fields = 0
+
+        for row in table.rows:
+            cells = row.cells
+            if len(cells) < 2:
+                continue
+
+            left = extract_text_without_strikethrough(cells[0].paragraphs[0]).strip() if cells[0].paragraphs else ''
+            right = extract_text_without_strikethrough(cells[1].paragraphs[0]).strip() if cells[1].paragraphs else ''
+
+            if not collateral_entry['date'] or not collateral_entry['regnum']:
+                date_match = date_regnum_pattern.search(left + ' ' + right)
+                if date_match:
+                    collateral_entry['date'] = date_match.group(1)
+                    collateral_entry['regnum'] = date_match.group(2)
+                    continue
+
+            for label, key in keys_map.items():
+                if label.lower() in left.lower():
+                    collateral_entry[key] = right
+                    found_fields += 1
+
+        if collateral_entry['date'] and (collateral_entry['asset'] or collateral_entry['holder']):
+            collaterals.append(collateral_entry)
+
     return collaterals
 
 
