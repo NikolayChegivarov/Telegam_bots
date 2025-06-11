@@ -1,3 +1,4 @@
+
 # views_docs/views_word_file.py
 from docx import Document
 import os
@@ -17,11 +18,11 @@ def print_doc_structure(doc):
 if __name__ == "__main__":
     # Получаем путь к корневой директории проекта (на два уровня выше текущего файла)
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    template_path = os.path.join(project_root, "views_docs", "word.docx")
+    template_path = os.path.join(project_root, "шаблон.docx")
 
     if not os.path.exists(template_path):
         print(f"❌ Файл не найден: {template_path}")
-        print("Убедитесь, что файл 'word.docx' находится в папке views_docs")
+        print("Убедитесь, что файл 'шаблон.docx' находится в корне проекта")
     else:
         try:
             document = Document(template_path)
