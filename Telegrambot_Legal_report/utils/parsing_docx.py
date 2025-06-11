@@ -5,6 +5,33 @@ from docx.oxml.ns import qn
 import os
 import re
 
+def extract_competitive_manager(doc):
+    """Извлекает информацию о конкурсном управляющем из таблиц документа."""
+    target_keys = [
+        "Исполняющий обязанности конкурсного управляющего",
+        "Конкурсный управляющий"
+    ]
+
+    def extract_text_from_cell(cell):
+        return '\n'.join(
+            paragraph.text.strip()
+            for paragraph in cell.paragraphs
+            if paragraph.text.strip()
+        ).strip()
+
+    for table in doc.tables:
+        for row in table.rows:
+            if len(row.cells) < 2:
+                continue
+
+            key = extract_text_from_cell(row.cells[0])
+            value = extract_text_from_cell(row.cells[1])
+
+            if any(target.lower() in key.lower() for target in target_keys):
+                return split_director_info(value)
+
+    return {'ФИО': '', 'ИНН': ''}
+
 def split_director_info(text):
     """Возвращает словарь с ФИО и ИНН, очищает пробелы и неразрывные пробелы."""
     cleaned = re.sub(r'[\u00A0\s]', '', text)  # удаляем пробелы и неразрывные пробелы
@@ -511,6 +538,7 @@ def parsing_all_docx(docx_path):
         'Юридический адрес': '',
         'Уставный капитал': '',
         'Генеральный директор': '',
+        'Конкурсный управляющий': '',  # <== добавили ключ
         'Учредители/участники': [],
         'ОКВЭД(основной)': '',
         'Сведения о сотрудниках': {
@@ -543,6 +571,7 @@ def parsing_all_docx(docx_path):
         credit_debt = extract_credit_debt(doc)
         financial_results = extract_financial_results(doc)
         assets_receivables = extract_assets_and_receivables(doc)
+        competitive_manager = extract_competitive_manager(doc)
 
         # Объединение данных
         company_data.update(basic_info)
@@ -553,6 +582,7 @@ def parsing_all_docx(docx_path):
         company_data['Кредиторская задолженность'] = credit_debt
         company_data['Отчет о финансовых результатах'] = financial_results
         company_data['Основные средства и дебиторка'] = assets_receivables
+        company_data['Конкурсный управляющий'] = competitive_manager
 
     except Exception as e:
         print(f"Ошибка при обработке файла '{docx_path}': {e}")
