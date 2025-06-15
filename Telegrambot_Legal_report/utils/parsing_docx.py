@@ -107,7 +107,6 @@ def extract_table_text_without_strikethrough(table):
 
 
 def extract_basic_info(doc):
-    """Извлекает основную информацию о компании, включая ФИО директора и все строки юр. адреса."""
     basic_info = {
         'Краткое наименование': '',
         'ИНН': '',
@@ -121,7 +120,6 @@ def extract_basic_info(doc):
     }
 
     def extract_text_from_cell(cell):
-        """Извлекает весь текст из ячейки, включая переносы строк между абзацами."""
         return '\n'.join(
             paragraph.text.strip()
             for paragraph in cell.paragraphs
@@ -147,6 +145,8 @@ def extract_basic_info(doc):
                 basic_info['КПП'] = value
             elif key == "ОГРН":
                 basic_info['ОГРН'] = value
+            elif key == "Дата образования":
+                basic_info['Дата образования'] = value
             elif "Юр. адрес" in key or "Юридический адрес" in key:
                 if value:
                     basic_info['Юридический адрес'].extend(value.split('\n'))
@@ -157,11 +157,11 @@ def extract_basic_info(doc):
             elif "Основной вид деятельности" in key:
                 basic_info['ОКВЭД(основной)'] = value
 
-    # Очистка и объединение юр. адресов
     basic_info['Юридический адрес'] = ', '.join(
         addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
 
     return basic_info
+
 
 
 def extract_staff_info(doc):
