@@ -123,7 +123,7 @@ def extract_basic_info(doc):
     def extract_text_from_cell(cell):
         """Извлекает весь текст из ячейки, включая переносы строк между абзацами."""
         return '\n'.join(
-            extract_text_without_strikethrough(paragraph).strip()
+            paragraph.text.strip()
             for paragraph in cell.paragraphs
             if paragraph.text.strip()
         ).strip()
@@ -147,8 +147,6 @@ def extract_basic_info(doc):
                 basic_info['КПП'] = value
             elif key == "ОГРН":
                 basic_info['ОГРН'] = value
-            elif "Дата образования" in key:
-                basic_info['Дата образования'] = value
             elif "Юр. адрес" in key or "Юридический адрес" in key:
                 if value:
                     basic_info['Юридический адрес'].extend(value.split('\n'))
@@ -160,7 +158,8 @@ def extract_basic_info(doc):
                 basic_info['ОКВЭД(основной)'] = value
 
     # Очистка и объединение юр. адресов
-    basic_info['Юридический адрес'] = ', '.join(addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
+    basic_info['Юридический адрес'] = ', '.join(
+        addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
 
     return basic_info
 
