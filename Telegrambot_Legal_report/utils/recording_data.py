@@ -22,16 +22,24 @@ def safe_str(val):
 
 def save_filled_doc(template_path: str, output_path: str, data: dict):
     document = Document(template_path)
-    # Строчка колонка
 
-    # Общая информация.
+    # Формируем текст для актуальных участников
+    actual_founders = data.get('Учредители/участники', {}).get('Актуальные участники', [])
+    founders_text = ""
+    for i, founder in enumerate(actual_founders, 1):
+        name = founder.get('Наимен. и реквизиты', '')
+        share = founder.get('Доля в %', '')
+        founders_text += f"{i}. {name} — {share}\n"
+    founders_text = founders_text.strip()
+
+    # Общая информация. Строчка колонка
     table1 = document.tables[0]
     table1.cell(0, 1).text = data.get("Краткое наименование", "")
     table1.cell(1, 1).text = data.get("ОГРН", "")
     table1.cell(2, 1).text = f"{data.get('ИНН', '')} / {data.get('КПП', '')}"
     table1.cell(3, 1).text = data.get("Юридический адрес", "")
     table1.cell(4, 1).text = data.get("Дата образования", "")
-    table1.cell(5, 1).text = data.get("", "")
+    table1.cell(5, 1).text = founders_text
     table1.cell(6, 1).text = data.get("Размер уставного капитала", "")
     table1.cell(7, 0).text = data.get("Генеральный директор", "")
     table1.cell(7, 1).text = data.get("Генеральный директор", "")
