@@ -159,7 +159,6 @@ def extract_basic_info(doc):
     return basic_info
 
 
-
 def extract_staff_info(doc):
     """Извлекает информацию о сотрудниках."""
     staff_info = {
