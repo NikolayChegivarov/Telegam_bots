@@ -95,6 +95,18 @@ def clean_sum_text(sum_text):
     return cleaned
 
 
+def extract_first_address_block(full_address: str) -> str:
+    """
+    Извлекает только первый логически завершённый адресный блок из полной строки.
+    Предполагается, что новые блоки начинаются с нового индекса (например, 115280).
+    """
+    match = list(re.finditer(r'\b1\d{5}\b', full_address))  # ищем все индексы
+
+    if len(match) >= 2:
+        return full_address[:match[1].start()].rstrip(', ')
+    return full_address.strip(', ')
+
+
 def extract_basic_info(doc):
     """Извлекает основную информацию о компании из документа."""
     basic_info = {
@@ -140,8 +152,9 @@ def extract_basic_info(doc):
             elif "Основной вид деятельности" in key:
                 basic_info['ОКВЭД(основной)'] = value
 
-    basic_info['Юридический адрес'] = ', '.join(
+    raw_address = ', '.join(
         addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
+    basic_info['Юридический адрес'] = extract_first_address_block(raw_address)
 
     return basic_info
 
