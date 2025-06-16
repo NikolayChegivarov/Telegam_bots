@@ -3,6 +3,7 @@ from docx import Document
 import time
 from datetime import datetime
 import re
+import ast
 
 def generate_filename(data: dict):
     org_name = data.get('org_name', 'report')
@@ -20,12 +21,14 @@ def safe_str(val):
     s = str(val)
     return ''.join(c for c in s if c.isprintable())
 
+
 def save_filled_doc(template_path: str, output_path: str, data: dict):
     from docx import Document
+    import ast
 
     document = Document(template_path)
 
-    # Формируем текст для актуальных участников
+    # --- Формируем текст для актуальных участников
     actual_founders = data.get('Учредители/участники', {}).get('Актуальные участники', [])
     founders_text = ""
     for i, founder in enumerate(actual_founders, 1):
@@ -34,7 +37,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
         founders_text += f"{i}. {name} — {share}\n"
     founders_text = founders_text.strip()
 
-    # Выбор между директором и конкурсным управляющим
+    # --- Директор или КУ
     director_role = "Генеральный директор"
     director_data = data.get("Генеральный директор", {})
     ku_data = data.get("Конкурсный управляющий", {})
@@ -46,7 +49,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     fio = director_data.get("ФИО", "")
     inn = director_data.get("ИНН", "")
 
-    # Общая информация. Строчка колонка
+    # --- Основная таблица
     table1 = document.tables[0]
     table1.cell(0, 1).text = data.get("Краткое наименование", "")
     table1.cell(1, 1).text = data.get("ОГРН", "")
@@ -60,10 +63,46 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     table1.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
     table1.cell(9, 1).text = data.get("Система налогообложения", "")
 
-    # Сведения о сотрудниках.
+    # --- Сведения о сотрудниках ---
     table2 = document.tables[1]
-    table2.cell(0, 1).text = data.get("", "")
-    table2.cell(1, 1).text = data.get("", "")
+
+    def extract_value(dictionary_str):
+        try:
+            parsed = ast.literal_eval(dictionary_str)
+            if isinstance(parsed, dict):
+                key = next(iter(parsed.keys()))
+                val = parsed[key]
+                return key, val
+        except Exception:
+            return "", ""
+        return "", ""
+
+    employee_info = data.get("Сведения о сотрудниках", {})
+    headcount = employee_info.get("Среднесписочная численность", {})
+    salary = employee_info.get("Средняя заработная плата", {})
+
+    # Подготовим год и значения в правильном порядке
+    columns = ['year_3', 'year_2', 'year_1']  # year_3 — старый год (2021), справа — новые (2023)
+    years = []
+    headcount_values = []
+    salary_values = []
+
+    for year_key in columns:
+        y, v1 = extract_value(headcount.get(year_key, ''))
+        _, v2 = extract_value(salary.get(year_key, ''))
+        years.append(y)
+        headcount_values.append(v1)
+        salary_values.append(v2)
+
+    # Заполняем таблицу
+    for i, year in enumerate(years):
+        table2.cell(0, i + 1).text = year  # заголовки: 2021 2022 2023
+        table2.cell(1, i + 1).text = headcount_values[i]
+        table2.cell(2, i + 1).text = salary_values[i]
+
+    # Устанавливаем подписи строк явно
+    table2.cell(1, 0).text = "Среднесписочная численность"
+    table2.cell(2, 0).text = "Средняя заработная плата"
 
     document.save(output_path)
 

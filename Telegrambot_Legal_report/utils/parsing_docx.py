@@ -160,92 +160,66 @@ def extract_basic_info(doc):
 
 
 def extract_staff_info(doc):
-    """Извлекает информацию о сотрудниках."""
+    """Извлекает информацию о сотрудниках: численность и среднюю зарплату."""
     staff_info = {
         'Среднесписочная численность': {'year_1': '', 'year_2': '', 'year_3': ''},
-        'Расходы на оплату труда': {'year_1': '', 'year_2': '', 'year_3': ''}
+        'Средняя заработная плата': {'year_1': '', 'year_2': '', 'year_3': ''}
     }
-    staff_years = {}
+    staff_years_count = {}
+    staff_years_salary = {}
 
-    # Извлечение данных о численности
     for table in doc.tables:
         rows = table.rows
         i = 0
         while i < len(rows):
             cells = rows[i].cells
-            key = extract_text_without_strikethrough(cells[0].paragraphs[0]).strip() if cells[0].paragraphs else ''
-            value = extract_text_without_strikethrough(cells[1].paragraphs[0]).strip() if len(cells) > 1 and cells[
-                1].paragraphs else ''
+            key = extract_text_without_strikethrough(cells[0].paragraphs[0]).strip().lower() if cells[0].paragraphs else ''
+            value = extract_text_without_strikethrough(cells[1].paragraphs[0]).strip() if len(cells) > 1 and cells[1].paragraphs else ''
 
-            if 'Среднесписоч' in key:
-                text_block = value
+            # Среднесписочная численность
+            if 'среднесписоч' in key:
+                text_block_count = value
                 j = i + 1
                 while j < len(rows):
-                    next_key = extract_text_without_strikethrough(rows[j].cells[0].paragraphs[0]).strip() if \
-                    rows[j].cells[0].paragraphs else ''
-                    next_value = extract_text_without_strikethrough(rows[j].cells[1].paragraphs[0]).strip() if len(
-                        rows[j].cells) > 1 and rows[j].cells[1].paragraphs else ''
-
-                    if next_key != '':
+                    next_key = extract_text_without_strikethrough(rows[j].cells[0].paragraphs[0]).strip().lower() if rows[j].cells[0].paragraphs else ''
+                    next_value = extract_text_without_strikethrough(rows[j].cells[1].paragraphs[0]).strip() if len(rows[j].cells) > 1 and rows[j].cells[1].paragraphs else ''
+                    if next_key:
                         break
-                    text_block += "\n" + next_value
+                    text_block_count += "\n" + next_value
                     j += 1
-
-                matches = re.findall(r'за (\d{4}):\s*([0-9]+)', text_block)
+                matches = re.findall(r'за\s+(\d{4}):\s*([0-9]+)', text_block_count)
                 for year, val in matches:
-                    staff_years[year] = val
+                    staff_years_count[year] = val
                 i = j
                 continue
+
+            # Средняя заработная плата
+            elif 'средняя заработная плата' in key or 'среднемесячная заработная плата' in key:
+                text_block_salary = value
+                j = i + 1
+                while j < len(rows):
+                    next_key = extract_text_without_strikethrough(rows[j].cells[0].paragraphs[0]).strip().lower() if rows[j].cells[0].paragraphs else ''
+                    next_value = extract_text_without_strikethrough(rows[j].cells[1].paragraphs[0]).strip() if len(rows[j].cells) > 1 and rows[j].cells[1].paragraphs else ''
+                    if next_key:
+                        break
+                    text_block_salary += "\n" + next_value
+                    j += 1
+                matches = re.findall(r'за\s+(\d{4}):\s*([\d\s]+)', text_block_salary)
+                for year, val in matches:
+                    salary_clean = clean_sum_text(val)
+                    staff_years_salary[year] = salary_clean
+                i = j
+                continue
+
             i += 1
 
-    # Извлечение данных о расходах на оплату труда
-    for table in doc.tables:
-        header_row = None
-        for row in table.rows:
-            row_values = [extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower()
-                          for cell in row.cells if cell.paragraphs]
-            if (any('код' in cell for cell in row_values) and
-                    sum(re.search(r'20\d{2}', cell) is not None for cell in row_values) >= 2):
-                header_row = row
-                break
-
-        if header_row:
-            year_indices = {}
-            for idx, cell in enumerate(header_row.cells):
-                if not cell.paragraphs:
-                    continue
-                match = re.search(r'(20\d{2})', extract_text_without_strikethrough(cell.paragraphs[0]))
-                if match:
-                    year_indices[match.group(1)] = idx
-
-            for row in table.rows:
-                first_cell = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower() if \
-                row.cells[0].paragraphs else ''
-                code_cell = extract_text_without_strikethrough(row.cells[1].paragraphs[0]).strip() if len(
-                    row.cells) > 1 and row.cells[1].paragraphs else ''
-
-                if (('оплата труда работников' in first_cell or code_cell == '4122') and
-                        len(row.cells) > 2):
-                    year_to_val = {}
-                    for year, idx in year_indices.items():
-                        if idx < len(row.cells) and row.cells[idx].paragraphs:
-                            val = extract_text_without_strikethrough(row.cells[idx].paragraphs[0]).strip().replace(' ',
-                                                                                                                   '')
-                            year_to_val[year] = val
-
-                    staff_years_sorted = sorted(staff_years, reverse=True)
-                    slots = ['year_1', 'year_2', 'year_3']
-                    for idx, year in enumerate(staff_years_sorted[:3]):
-                        if year in year_to_val:
-                            staff_info['Расходы на оплату труда'][slots[idx]] = f"{{'{year}': '{year_to_val[year]}'}}"
-                    break
-
-    # Заполнение данных о численности
-    staff_years_sorted = sorted(staff_years, reverse=True)
+    # Формируем словарь результата
     slots = ['year_1', 'year_2', 'year_3']
-    for idx, year in enumerate(staff_years_sorted[:3]):
-        val = staff_years[year]
-        staff_info['Среднесписочная численность'][slots[idx]] = f"{{'{year}': '{val}'}}"
+    for idx, year in enumerate(sorted(staff_years_count.keys(), reverse=True)[:3]):
+        staff_info['Среднесписочная численность'][slots[idx]] = f"{{'{year}': '{staff_years_count[year]}'}}"
+
+    for idx, year in enumerate(sorted(staff_years_salary.keys(), reverse=True)[:3]):
+        staff_info['Средняя заработная плата'][slots[idx]] = f"{{'{year}': '{staff_years_salary[year]}'}}"
 
     return staff_info
 
