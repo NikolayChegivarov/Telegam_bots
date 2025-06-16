@@ -305,32 +305,31 @@ def extract_founders(doc):
 
 
 def extract_collaterals(doc):
-    """Извлекает информацию о залогах из таблиц с парами 'ключ-значение'."""
+    """Извлекает информацию о залогах из таблиц с парами 'ключ-значение' и возвращает ключи на русском языке."""
     collaterals = []
 
     keys_map = {
-        'Залогодатель': 'pledger',
-        'Залогодержатель': 'holder',
-        'Договор': 'contract',
-        'Срок исполнения': 'term',
-        'Тип имущества': 'asset_type',
-        'Описание': 'asset',
+        'Залогодатель': 'Залогодатель',
+        'Залогодержатель': 'Залогодержатель',
+        'Договор': 'Договор',
+        'Срок исполнения': 'Срок исполнения',
+        'Тип имущества': 'Тип имущества',
+        'Описание': 'Описание',
     }
 
     date_regnum_pattern = re.compile(r'(\d{2}\.\d{2}\.\d{4})\s+([\d\-]+)')
 
     for table in doc.tables:
         collateral_entry = {
-            'date': '',
-            'regnum': '',
-            'pledger': '',
-            'holder': '',
-            'contract': '',
-            'term': '',
-            'asset_type': '',
-            'asset': ''
+            'Дата': '',
+            'Регистрационный номер': '',
+            'Залогодатель': '',
+            'Залогодержатель': '',
+            'Договор': '',
+            'Срок исполнения': '',
+            'Тип имущества': '',
+            'Описание': ''
         }
-        found_fields = 0
 
         for row in table.rows:
             cells = row.cells
@@ -340,19 +339,19 @@ def extract_collaterals(doc):
             left = extract_text_without_strikethrough(cells[0].paragraphs[0]).strip() if cells[0].paragraphs else ''
             right = extract_text_without_strikethrough(cells[1].paragraphs[0]).strip() if cells[1].paragraphs else ''
 
-            if not collateral_entry['date'] or not collateral_entry['regnum']:
+            if not collateral_entry['Дата'] or not collateral_entry['Регистрационный номер']:
                 date_match = date_regnum_pattern.search(left + ' ' + right)
                 if date_match:
-                    collateral_entry['date'] = date_match.group(1)
-                    collateral_entry['regnum'] = date_match.group(2)
+                    collateral_entry['Дата'] = date_match.group(1)
+                    collateral_entry['Регистрационный номер'] = date_match.group(2)
                     continue
 
-            for label, key in keys_map.items():
+            for label in keys_map:
                 if label.lower() in left.lower():
-                    collateral_entry[key] = right
-                    found_fields += 1
+                    collateral_entry[label] = right
+                    break
 
-        if collateral_entry['date'] and (collateral_entry['asset'] or collateral_entry['holder']):
+        if collateral_entry['Дата'] and (collateral_entry['Описание'] or collateral_entry['Залогодержатель']):
             collaterals.append(collateral_entry)
 
     return collaterals
