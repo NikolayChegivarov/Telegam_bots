@@ -21,19 +21,37 @@ def extract_inn_ogrn(text):
     return cleaned_text, inn, ogrn
 
 
+def extract_text_from_cell(cell):
+    """Извлекает и объединяет текст из всех непустых параграфов ячейки."""
+    return '\n'.join(
+        paragraph.text.strip()
+        for paragraph in cell.paragraphs
+        if paragraph.text.strip()
+    ).strip()
+
+
+def extract_text_without_strikethrough(paragraph):
+    """Извлекает текст из параграфа, исключая зачеркнутые части."""
+    return ''.join(run.text for run in paragraph.runs if not is_strikethrough(run))
+
+
+def is_strikethrough(run):
+    """Проверяет, является ли текст зачеркнутым."""
+    if run.font.strike:
+        return True
+    rPr = run._element.get_or_add_rPr()
+    strike = rPr.find(qn('w:strike'))
+    if strike is not None and strike.get(qn('w:val')) != '0':
+        return True
+    return False
+
+
 def extract_competitive_manager(doc):
     """Извлекает информацию о конкурсном управляющем из таблиц документа."""
     target_keys = [
         "Исполняющий обязанности конкурсного управляющего",
         "Конкурсный управляющий"
     ]
-
-    def extract_text_from_cell(cell):
-        return '\n'.join(
-            paragraph.text.strip()
-            for paragraph in cell.paragraphs
-            if paragraph.text.strip()
-        ).strip()
 
     for table in doc.tables:
         for row in table.rows:
@@ -48,6 +66,7 @@ def extract_competitive_manager(doc):
 
     return {'ФИО': '', 'ИНН': ''}
 
+
 def split_director_info(text):
     """Возвращает словарь с ФИО и ИНН, очищает пробелы и неразрывные пробелы."""
     cleaned = re.sub(r'[\u00A0\s]', '', text)  # удаляем пробелы и неразрывные пробелы
@@ -60,17 +79,6 @@ def split_director_info(text):
         return {'ФИО': raw_fio, 'ИНН': inn}
     else:
         return {'ФИО': text.strip(), 'ИНН': ''}
-
-
-def is_strikethrough(run):
-    """Проверяет, является ли текст зачеркнутым."""
-    if run.font.strike:
-        return True
-    rPr = run._element.get_or_add_rPr()
-    strike = rPr.find(qn('w:strike'))
-    if strike is not None and strike.get(qn('w:val')) != '0':
-        return True
-    return False
 
 
 def clean_sum_text(sum_text):
@@ -87,26 +95,8 @@ def clean_sum_text(sum_text):
     return cleaned
 
 
-def extract_text_without_strikethrough(paragraph):
-    """Извлекает текст из параграфа, исключая зачеркнутые части."""
-    return ''.join(run.text for run in paragraph.runs if not is_strikethrough(run))
-
-
-def extract_table_text_without_strikethrough(table):
-    """Извлекает текст из таблицы, исключая зачеркнутые части."""
-    text = []
-    for row in table.rows:
-        row_text = []
-        for cell in row.cells:
-            cell_text = []
-            for paragraph in cell.paragraphs:
-                cell_text.append(extract_text_without_strikethrough(paragraph))
-            row_text.append(' '.join(cell_text))
-        text.append(' | '.join(row_text))
-    return '\n'.join(text)
-
-
 def extract_basic_info(doc):
+    """Извлекает основную информацию о компании из документа."""
     basic_info = {
         'Краткое наименование': '',
         'ИНН': '',
@@ -118,13 +108,6 @@ def extract_basic_info(doc):
         'Генеральный директор': '',
         'ОКВЭД(основной)': ''
     }
-
-    def extract_text_from_cell(cell):
-        return '\n'.join(
-            paragraph.text.strip()
-            for paragraph in cell.paragraphs
-            if paragraph.text.strip()
-        ).strip()
 
     for table in doc.tables:
         for row in table.rows:

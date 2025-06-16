@@ -21,6 +21,8 @@ def safe_str(val):
     return ''.join(c for c in s if c.isprintable())
 
 def save_filled_doc(template_path: str, output_path: str, data: dict):
+    from docx import Document
+
     document = Document(template_path)
 
     # Формируем текст для актуальных участников
@@ -32,6 +34,18 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
         founders_text += f"{i}. {name} — {share}\n"
     founders_text = founders_text.strip()
 
+    # Выбор между директором и конкурсным управляющим
+    director_role = "Генеральный директор"
+    director_data = data.get("Генеральный директор", {})
+    ku_data = data.get("Конкурсный управляющий", {})
+
+    if ku_data.get("ИНН") or ku_data.get("ФИО"):
+        director_role = "Конкурсный управляющий"
+        director_data = ku_data
+
+    fio = director_data.get("ФИО", "")
+    inn = director_data.get("ИНН", "")
+
     # Общая информация. Строчка колонка
     table1 = document.tables[0]
     table1.cell(0, 1).text = data.get("Краткое наименование", "")
@@ -40,9 +54,9 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     table1.cell(3, 1).text = data.get("Юридический адрес", "")
     table1.cell(4, 1).text = data.get("Дата образования", "")
     table1.cell(5, 1).text = founders_text
-    table1.cell(6, 1).text = data.get("Размер уставного капитала", "")
-    table1.cell(7, 0).text = data.get("Генеральный директор", "")
-    table1.cell(7, 1).text = data.get("Генеральный директор", "")
+    table1.cell(6, 1).text = data.get("Уставный капитал", "")
+    table1.cell(7, 0).text = director_role
+    table1.cell(7, 1).text = f"{fio}, ИНН {inn}".strip(", ")
     table1.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
     table1.cell(9, 1).text = data.get("Система налогообложения", "")
 
@@ -52,3 +66,4 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     table2.cell(1, 1).text = data.get("", "")
 
     document.save(output_path)
+
