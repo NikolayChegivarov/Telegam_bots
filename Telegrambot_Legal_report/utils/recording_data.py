@@ -104,5 +104,20 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     table2.cell(1, 0).text = "Среднесписочная численность"
     table2.cell(2, 0).text = "Средняя заработная плата"
 
+    # --- Сведения о залоге долей ---
+    table4 = document.tables[3]  # Таблица #4 по индексу
+
+    # Удаляем строку-шаблон (вторая строка таблицы)
+    if len(table4.rows) > 1:
+        tbl = table4._tbl
+        tbl.remove(tbl.tr_lst[1])  # удаление второй строки на уровне XML
+
+    pledges = data.get("Сведения о залогах", [])
+    for pledge in pledges:
+        row_cells = table4.add_row().cells
+        row_cells[0].text = pledge.get("Залогодатель", "")
+        row_cells[1].text = pledge.get("Дата залога", "")
+        row_cells[2].text = pledge.get("Залогодержатель", "")
+
     document.save(output_path)
 
