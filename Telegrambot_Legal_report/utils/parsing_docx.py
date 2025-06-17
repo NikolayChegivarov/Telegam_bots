@@ -580,7 +580,7 @@ def parsing_all_docx(docx_path):
         # Объединение данных
         company_data.update(basic_info)
         company_data['Сведения о сотрудниках'] = staff_info
-        company_data['Учредители/участники'] = extract_founders(doc)
+        company_data['Учредители/участники'] = founders
         company_data['Сведения о залогах'] = collaterals
         company_data['Сведения о лизинге'] = leasing_info
         company_data['Кредиторская задолженность'] = credit_debt

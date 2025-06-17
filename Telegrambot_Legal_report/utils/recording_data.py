@@ -6,6 +6,8 @@ import re
 import ast
 
 def generate_filename(data: dict):
+    """Формирует имя файла в формате: 'название_организации_дата_время.docx'
+    Удаляет опасные символы из имени организации для корректного сохранения файла."""
     org_name = data.get('org_name', 'report')
     org_name = org_name.replace('"', '').replace("'", '')
     org_name = re.sub(r'[<>:/\\|?*]', '', org_name)
@@ -16,19 +18,16 @@ def generate_filename(data: dict):
 
 
 def safe_str(val):
+    """Преобразует значение в безопасную строку, удаляя непечатаемые символы типа u0000."""
     if val is None:
         return ""
     s = str(val)
     return ''.join(c for c in s if c.isprintable())
 
 
-def save_filled_doc(template_path: str, output_path: str, data: dict):
-    from docx import Document
-    import ast
-
-    document = Document(template_path)
-
-    # --- Формируем текст для актуальных участников
+def fill_table1(table, data: dict):
+    """Заполнение таблицы 1 - Основные сведения о компании"""
+    # Формируем текст для актуальных участников
     actual_founders = data.get('Учредители/участники', {}).get('Актуальные участники', [])
     founders_text = ""
     for i, founder in enumerate(actual_founders, 1):
@@ -37,7 +36,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
         founders_text += f"{i}. {name} — {share}\n"
     founders_text = founders_text.strip()
 
-    # --- Директор или КУ
+    # Директор или КУ
     director_role = "Генеральный директор"
     director_data = data.get("Генеральный директор", {})
     ku_data = data.get("Конкурсный управляющий", {})
@@ -49,23 +48,22 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     fio = director_data.get("ФИО", "")
     inn = director_data.get("ИНН", "")
 
-    # --- Основная таблица
-    table1 = document.tables[0]
-    table1.cell(0, 1).text = data.get("Краткое наименование", "")
-    table1.cell(1, 1).text = data.get("ОГРН", "")
-    table1.cell(2, 1).text = f"{data.get('ИНН', '')} / {data.get('КПП', '')}"
-    table1.cell(3, 1).text = data.get("Юридический адрес", "")
-    table1.cell(4, 1).text = data.get("Дата образования", "")
-    table1.cell(5, 1).text = founders_text
-    table1.cell(6, 1).text = data.get("Уставный капитал", "")
-    table1.cell(7, 0).text = director_role
-    table1.cell(7, 1).text = f"{fio}, ИНН {inn}".strip(", ")
-    table1.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
-    table1.cell(9, 1).text = data.get("Система налогообложения", "")
+    # Заполнение ячеек таблицы
+    table.cell(0, 1).text = data.get("Краткое наименование", "")
+    table.cell(1, 1).text = data.get("ОГРН", "")
+    table.cell(2, 1).text = f"{data.get('ИНН', '')} / {data.get('КПП', '')}"
+    table.cell(3, 1).text = data.get("Юридический адрес", "")
+    table.cell(4, 1).text = data.get("Дата образования", "")
+    table.cell(5, 1).text = founders_text
+    table.cell(6, 1).text = data.get("Уставный капитал", "")
+    table.cell(7, 0).text = director_role
+    table.cell(7, 1).text = f"{fio}, ИНН {inn}".strip(", ")
+    table.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
+    table.cell(9, 1).text = data.get("Система налогообложения", "")
 
-    # --- Сведения о сотрудниках ---
-    table2 = document.tables[1]
 
+def fill_table2(table, data: dict):
+    """Заполнение таблицы 2 - Сведения о сотрудниках"""
     def extract_value(dictionary_str):
         try:
             parsed = ast.literal_eval(dictionary_str)
@@ -96,28 +94,37 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
 
     # Заполняем таблицу
     for i, year in enumerate(years):
-        table2.cell(0, i + 1).text = year  # заголовки: 2021 2022 2023
-        table2.cell(1, i + 1).text = headcount_values[i]
-        table2.cell(2, i + 1).text = salary_values[i]
+        table.cell(0, i + 1).text = year  # заголовки: 2021 2022 2023
+        table.cell(1, i + 1).text = headcount_values[i]
+        table.cell(2, i + 1).text = salary_values[i]
 
     # Устанавливаем подписи строк явно
-    table2.cell(1, 0).text = "Среднесписочная численность"
-    table2.cell(2, 0).text = "Средняя заработная плата"
+    table.cell(1, 0).text = "Среднесписочная численность"
+    table.cell(2, 0).text = "Средняя заработная плата"
 
-    # --- Сведения о залоге долей ---
-    table4 = document.tables[3]  # Таблица #4 по индексу
 
+def fill_table4(table, data: dict):
+    """Заполнение таблицы 4 - Сведения о залоге долей"""
     # Удаляем строку-шаблон (вторая строка таблицы)
-    if len(table4.rows) > 1:
-        tbl = table4._tbl
+    if len(table.rows) > 1:
+        tbl = table._tbl
         tbl.remove(tbl.tr_lst[1])  # удаление второй строки на уровне XML
 
     pledges = data.get("Сведения о залогах", [])
     for pledge in pledges:
-        row_cells = table4.add_row().cells
+        row_cells = table.add_row().cells
         row_cells[0].text = pledge.get("Залогодатель", "")
         row_cells[1].text = pledge.get("Дата залога", "")
         row_cells[2].text = pledge.get("Залогодержатель", "")
 
-    document.save(output_path)
 
+def save_filled_doc(template_path: str, output_path: str, data: dict):
+    """Основная функция для заполнения шаблона документа"""
+    document = Document(template_path)
+
+    # Заполняем таблицы через отдельные функции
+    fill_table1(document.tables[0], data)  # Таблица 1
+    fill_table2(document.tables[1], data)  # Таблица 2
+    fill_table4(document.tables[3], data)  # Таблица 4
+
+    document.save(output_path)
