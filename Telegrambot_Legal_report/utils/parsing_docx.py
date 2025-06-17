@@ -108,7 +108,6 @@ def extract_first_address_block(full_address: str) -> str:
 
 
 def extract_basic_info(doc):
-    """Извлекает основную информацию о компании из документа."""
     basic_info = {
         'Краткое наименование': '',
         'ИНН': '',
@@ -123,14 +122,17 @@ def extract_basic_info(doc):
 
     for table in doc.tables:
         for row in table.rows:
-            if len(row.cells) < 2:
+            cells = row.cells
+            if len(cells) < 2:
                 continue
 
-            key = extract_text_from_cell(row.cells[0])
-            value = extract_text_from_cell(row.cells[1])
+            key = extract_text_from_cell(cells[0])
+            value = extract_text_from_cell(cells[1])
 
             if not key and not value:
                 continue
+
+            # print(f"Ключ: {key!r} | Значение: {value!r}")  # 🐞 Отладка
 
             if "Краткое наименование" in key:
                 basic_info['Краткое наименование'] = value
@@ -145,7 +147,7 @@ def extract_basic_info(doc):
             elif "Юр. адрес" in key or "Юридический адрес" in key:
                 if value:
                     basic_info['Юридический адрес'].extend(value.split('\n'))
-            elif "Уставный капитал" in key:
+            elif "Уставный капитал" in key and not basic_info['Уставный капитал']:
                 basic_info['Уставный капитал'] = value
             elif "Генеральный директор" in key:
                 basic_info['Генеральный директор'] = split_director_info(value)
