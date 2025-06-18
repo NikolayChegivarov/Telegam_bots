@@ -2,6 +2,12 @@ from docx import Document
 from docx.shared import Parented
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from pprint import pprint
+import zipfile
+import re
+import xml.etree.ElementTree as ET
+import docx2txt
+from docx.table import Table
 import os
 import re
 
@@ -531,6 +537,64 @@ def extract_assets_and_receivables(doc):
     return result
 
 
+def extract_related_companies_from_path(filepath):
+    print("\n=== Извлечение через docx2txt (улучшенное) ===")
+
+    full_text = docx2txt.process(filepath)
+
+    if not full_text or "Ближайшие связи – Актуальные" not in full_text:
+        print("Блок 'Ближайшие связи – Актуальные' не найден.")
+        return []
+
+    # Вырезаем нужную часть
+    block_text = full_text.split("Ближайшие связи – Актуальные", 1)[-1].strip()
+
+    stop_keywords = ["Ответчик", "Истец", "Банкротство", "Финансовый анализ"]
+    for stop in stop_keywords:
+        if stop in block_text:
+            block_text = block_text.split(stop, 1)[0].strip()
+
+    lines = [line.strip() for line in block_text.splitlines() if line.strip()]
+
+    related_companies = []
+    current = None
+
+    for i, line in enumerate(lines):
+        # Новый блок компании
+        if re.match(r'^(ООО|ИП|АО|ПАО)\s', line):
+            if current:
+                related_companies.append(current)
+            current = {
+                "Наименование": line,
+                "Генеральный директор": "",
+                "Участники": [],
+                "Адрес": ""
+            }
+            continue
+
+        if not current:
+            continue
+
+        # Генеральный директор — отдельная строка, имя на следующей
+        if "Генеральный директор" in line and i + 1 < len(lines):
+            current["Генеральный директор"] = lines[i + 1]
+
+        # Участник / Учредитель — имя на следующей строке
+        if ("учредитель" in line.lower() or "участник" in line.lower()) and i + 1 < len(lines):
+            participant = lines[i + 1]
+            current["Участники"].append(participant)
+
+        # Адрес — любая строка, похожая на адрес (эвристика)
+        if re.search(r'(обл\.|г\.)', line.lower()) and not current["Адрес"]:
+            current["Адрес"] = line
+
+    if current:
+        related_companies.append(current)
+
+    print("\n--- Итог ---")
+    pprint(related_companies)
+    return related_companies
+
 def parsing_all_docx(docx_path):
     """Основная функция для парсинга всего документа."""
     company_data = {
@@ -556,7 +620,8 @@ def parsing_all_docx(docx_path):
         'Основные средства и дебиторка': {
             'Основные средства': {},
             'Дебиторская задолженность': {}
-        }
+        },
+        'Ближайшие связи': []
     }
 
     if not os.path.isfile(docx_path):
@@ -576,6 +641,7 @@ def parsing_all_docx(docx_path):
         financial_results = extract_financial_results(doc)
         assets_receivables = extract_assets_and_receivables(doc)
         competitive_manager = extract_competitive_manager(doc)
+        related_companies = extract_related_companies_from_path(docx_path)
 
         # Объединение данных
         company_data.update(basic_info)
@@ -587,6 +653,7 @@ def parsing_all_docx(docx_path):
         company_data['Отчет о финансовых результатах'] = financial_results
         company_data['Основные средства и дебиторка'] = assets_receivables
         company_data['Конкурсный управляющий'] = competitive_manager
+        company_data['Ближайшие связи'] = related_companies
 
     except Exception as e:
         print(f"Ошибка при обработке файла '{docx_path}': {e}")
