@@ -542,11 +542,10 @@ def extract_related_companies_from_path(filepath):
 
     if not full_text or "Ближайшие связи – Актуальные" not in full_text:
         print("Блок 'Ближайшие связи – Актуальные' не найден.")
-        return []
+        return {"Ближайшие связи": {}}
 
     block_text = full_text.split("Ближайшие связи – Актуальные", 1)[-1].strip()
 
-    # Обрезать по следующему явному заголовку, если он есть
     stop_keywords = ["Финансовый анализ", "Банкротство", "Суды", "Рекомендации"]
     for stop in stop_keywords:
         if stop in block_text:
@@ -554,22 +553,29 @@ def extract_related_companies_from_path(filepath):
 
     lines = [line.strip() for line in block_text.splitlines() if line.strip()]
 
-    related_companies = []
-    seen_names = set()
+    related_companies = {}
     current = None
+    current_key = None
 
     for i, line in enumerate(lines):
-        # Новый блок компании
-        if re.match(r'^(ООО|АО|ПАО|ИП)\s', line):
-            if current and current["Наименование"] not in seen_names:
-                related_companies.append(current)
-                seen_names.add(current["Наименование"])
+        clean_line = line.lstrip("▶►•").strip()  # удаляем символы начала строки
 
+        # Пропускаем мусор
+        if ("контур.фокус" in clean_line.lower()
+                or "по данным" in clean_line.lower()
+                or "на основании" in clean_line.lower()):
+            continue
+
+        # Начало новой компании
+        if re.match(r'^(ООО|АО|ПАО|ИП)\s', clean_line):
+            if current_key and current:
+                related_companies[current_key] = current
+
+            current_key = clean_line
             current = {
-                "Наименование": line,
-                "Генеральный директор": "",
-                "Участники": [],
-                "Адрес": ""
+                "Адрес": "",
+                "Генеральный директор": "" if not current_key.startswith("ИП") else "",
+                "Участники": [] if not current_key.startswith("ИП") else []
             }
             continue
 
@@ -577,33 +583,31 @@ def extract_related_companies_from_path(filepath):
             continue
 
         # Генеральный директор
-        if "Генеральный директор" in line and i + 1 < len(lines):
+        if "Генеральный директор" in clean_line and i + 1 < len(lines):
             fio_line = lines[i + 1]
             cleaned, inn, _ = extract_inn_ogrn(fio_line)
             result = f"{cleaned}, ИНН {inn}" if inn else cleaned
             current["Генеральный директор"] = result
 
         # Участники
-        if ("учредитель" in line.lower() or "участник" in line.lower()) and i + 1 < len(lines):
+        if ("учредитель" in clean_line.lower() or "участник" in clean_line.lower()) and i + 1 < len(lines):
             full_text = lines[i + 1]
             participant = full_text.split("100%")[0].strip() + "100%" if "100%" in full_text else full_text
             participant = re.sub(r"\xa0", " ", participant)
             current["Участники"].append(participant)
 
-        # Явный заголовок "Адрес"
-        if line.lower() == "адрес" and i + 1 < len(lines):
+        # Адрес
+        if clean_line.lower() == "адрес" and i + 1 < len(lines):
             current["Адрес"] = lines[i + 1]
-            continue
+        elif not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', clean_line.lower()):
+            current["Адрес"] = clean_line
 
-        # Адрес по эвристике
-        if not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', line.lower()):
-            current["Адрес"] = line
-
-    # Добавляем последнюю компанию
-    if current and current["Наименование"] not in seen_names:
-        related_companies.append(current)
+    # Добавить последнюю компанию
+    if current_key and current:
+        related_companies[current_key] = current
 
     return related_companies
+
 
 
 def parsing_all_docx(docx_path):
