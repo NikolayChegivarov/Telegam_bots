@@ -558,15 +558,15 @@ def extract_related_companies_from_path(filepath):
     current_key = None
 
     for i, line in enumerate(lines):
-        clean_line = line.lstrip("▶►•").strip()  # удаляем символы начала строки
+        clean_line = line.lstrip("▶►•").strip()
 
-        # Пропускаем мусор
+        # Пропуск мусора
         if ("контур.фокус" in clean_line.lower()
                 or "по данным" in clean_line.lower()
                 or "на основании" in clean_line.lower()):
             continue
 
-        # Начало новой компании
+        # Новый блок
         if re.match(r'^(ООО|АО|ПАО|ИП)\s', clean_line):
             if current_key and current:
                 related_companies[current_key] = current
@@ -574,13 +574,22 @@ def extract_related_companies_from_path(filepath):
             current_key = clean_line
             current = {
                 "Адрес": "",
-                "Генеральный директор": "" if not current_key.startswith("ИП") else "",
-                "Участники": [] if not current_key.startswith("ИП") else []
+                "Генеральный директор": "" if current_key.startswith("ИП") else "",
+                "Участники": [] if current_key.startswith("ИП") else [],
+                "Реквизиты": {"ИНН": "", "ОГРН": ""}
             }
             continue
 
         if not current:
             continue
+
+        # Реквизиты — если содержат ИНН или ОГРН
+        if "инн" in clean_line.lower() or "огрн" in clean_line.lower():
+            _, inn, ogrn = extract_inn_ogrn(clean_line)
+            if inn:
+                current["Реквизиты"]["ИНН"] = inn
+            if ogrn:
+                current["Реквизиты"]["ОГРН"] = ogrn
 
         # Генеральный директор
         if "Генеральный директор" in clean_line and i + 1 < len(lines):
@@ -602,12 +611,11 @@ def extract_related_companies_from_path(filepath):
         elif not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', clean_line.lower()):
             current["Адрес"] = clean_line
 
-    # Добавить последнюю компанию
+    # Последний блок
     if current_key and current:
         related_companies[current_key] = current
 
     return related_companies
-
 
 
 def parsing_all_docx(docx_path):
