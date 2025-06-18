@@ -538,7 +538,6 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
-    print("\n=== Извлечение через docx2txt (улучшенное) ===")
 
     full_text = docx2txt.process(filepath)
 
@@ -546,7 +545,6 @@ def extract_related_companies_from_path(filepath):
         print("Блок 'Ближайшие связи – Актуальные' не найден.")
         return []
 
-    # Вырезаем нужную часть
     block_text = full_text.split("Ближайшие связи – Актуальные", 1)[-1].strip()
 
     stop_keywords = ["Ответчик", "Истец", "Банкротство", "Финансовый анализ"]
@@ -557,13 +555,14 @@ def extract_related_companies_from_path(filepath):
     lines = [line.strip() for line in block_text.splitlines() if line.strip()]
 
     related_companies = []
+    seen_names = set()
     current = None
 
     for i, line in enumerate(lines):
-        # Новый блок компании
         if re.match(r'^(ООО|ИП|АО|ПАО)\s', line):
-            if current:
+            if current and current["Наименование"] not in seen_names:
                 related_companies.append(current)
+                seen_names.add(current["Наименование"])
             current = {
                 "Наименование": line,
                 "Генеральный директор": "",
@@ -575,24 +574,33 @@ def extract_related_companies_from_path(filepath):
         if not current:
             continue
 
-        # Генеральный директор — отдельная строка, имя на следующей
+        # Генеральный директор
         if "Генеральный директор" in line and i + 1 < len(lines):
-            current["Генеральный директор"] = lines[i + 1]
+            fio_line = lines[i + 1]
+            cleaned, inn, _ = extract_inn_ogrn(fio_line)
+            result = f"{cleaned}, ИНН {inn}" if inn else cleaned
+            current["Генеральный директор"] = result
 
-        # Участник / Учредитель — имя на следующей строке
+        # Участники
         if ("учредитель" in line.lower() or "участник" in line.lower()) and i + 1 < len(lines):
-            participant = lines[i + 1]
+            full_text = lines[i + 1]
+            participant = full_text.split("100%")[0].strip() + "100%" if "100%" in full_text else full_text
+            participant = re.sub(r"\xa0", " ", participant)  # убрать неразрывные пробелы
             current["Участники"].append(participant)
 
-        # Адрес — любая строка, похожая на адрес (эвристика)
-        if re.search(r'(обл\.|г\.)', line.lower()) and not current["Адрес"]:
+        # Явный заголовок "Адрес"
+        if line.lower() == "адрес" and i + 1 < len(lines):
+            current["Адрес"] = lines[i + 1]
+            continue
+
+        # Резерв: эвристика, если адрес не был найден явно
+        if not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', line.lower()):
             current["Адрес"] = line
 
-    if current:
+    # Добавим последнюю компанию, если она уникальна
+    if current and current["Наименование"] not in seen_names:
         related_companies.append(current)
 
-    print("\n--- Итог ---")
-    pprint(related_companies)
     return related_companies
 
 def parsing_all_docx(docx_path):
