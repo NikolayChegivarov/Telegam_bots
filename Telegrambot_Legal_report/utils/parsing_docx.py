@@ -538,7 +538,6 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
-
     full_text = docx2txt.process(filepath)
 
     if not full_text or "Ближайшие связи – Актуальные" not in full_text:
@@ -547,7 +546,8 @@ def extract_related_companies_from_path(filepath):
 
     block_text = full_text.split("Ближайшие связи – Актуальные", 1)[-1].strip()
 
-    stop_keywords = ["Ответчик", "Истец", "Банкротство", "Финансовый анализ"]
+    # Обрезать по следующему явному заголовку, если он есть
+    stop_keywords = ["Финансовый анализ", "Банкротство", "Суды", "Рекомендации"]
     for stop in stop_keywords:
         if stop in block_text:
             block_text = block_text.split(stop, 1)[0].strip()
@@ -559,10 +559,12 @@ def extract_related_companies_from_path(filepath):
     current = None
 
     for i, line in enumerate(lines):
-        if re.match(r'^(ООО|ИП|АО|ПАО)\s', line):
+        # Новый блок компании
+        if re.match(r'^(ООО|АО|ПАО|ИП)\s', line):
             if current and current["Наименование"] not in seen_names:
                 related_companies.append(current)
                 seen_names.add(current["Наименование"])
+
             current = {
                 "Наименование": line,
                 "Генеральный директор": "",
@@ -585,7 +587,7 @@ def extract_related_companies_from_path(filepath):
         if ("учредитель" in line.lower() or "участник" in line.lower()) and i + 1 < len(lines):
             full_text = lines[i + 1]
             participant = full_text.split("100%")[0].strip() + "100%" if "100%" in full_text else full_text
-            participant = re.sub(r"\xa0", " ", participant)  # убрать неразрывные пробелы
+            participant = re.sub(r"\xa0", " ", participant)
             current["Участники"].append(participant)
 
         # Явный заголовок "Адрес"
@@ -593,15 +595,16 @@ def extract_related_companies_from_path(filepath):
             current["Адрес"] = lines[i + 1]
             continue
 
-        # Резерв: эвристика, если адрес не был найден явно
+        # Адрес по эвристике
         if not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', line.lower()):
             current["Адрес"] = line
 
-    # Добавим последнюю компанию, если она уникальна
+    # Добавляем последнюю компанию
     if current and current["Наименование"] not in seen_names:
         related_companies.append(current)
 
     return related_companies
+
 
 def parsing_all_docx(docx_path):
     """Основная функция для парсинга всего документа."""
