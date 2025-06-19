@@ -13,8 +13,8 @@ def extract_structured_data(word_path, pdf_path, excel_path):
     data_docx = parsing_all_docx(word_path) if word_path else {}
     print("Данные из .docx файла собраны")
 
-    data_pdf = parsing_all_pdf(pdf_path) if pdf_path else {}
-    print("Данные из PDF файла собраны")
+    # data_pdf = parsing_all_pdf(pdf_path) if pdf_path else {}
+    # print("Данные из PDF файла собраны")
 
     # Получим ИНН из Word-данных, если он там есть
     company_inn = data_docx.get("ИНН", None)
@@ -24,7 +24,7 @@ def extract_structured_data(word_path, pdf_path, excel_path):
     combined = {}
 
     # Объединяем все данные
-    for data in (data_docx, data_pdf, data_excel):
+    for data in (data_docx, data_excel):  # , data_pdf
         for key, val in data.items():
             if key in combined and isinstance(val, dict) and isinstance(combined[key], dict):
                 combined[key].update(val)
