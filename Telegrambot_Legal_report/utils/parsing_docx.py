@@ -441,54 +441,67 @@ def extract_credit_debt(doc):
 
 
 def extract_financial_results(doc):
-    """Извлекает финансовые результаты."""
+    """Извлекает финансовые результаты, удаляя строки без значений (заголовки)."""
     financial_results = {}
     year_indices = {}
-    last_years = []
 
     for table in doc.tables:
+        if len(table.rows) < 2 or len(table.columns) < 2:
+            continue
+
+        # Заголовок таблицы
         header_row = table.rows[0]
         header_cells = [extract_text_without_strikethrough(cell.paragraphs[0]).strip()
                         for cell in header_row.cells if cell.paragraphs]
-        temp_year_indices = {}
 
+        temp_year_indices = {}
         for idx, text in enumerate(header_cells):
-            match = re.match(r'конец\s*(20\d{2})', text.lower()) or re.match(r'(20\d{2})', text)
+            match = re.search(r'(?:конец\s*)?(20\d{2})', text.lower())
             if match:
                 year = match.group(1)
                 temp_year_indices[year] = idx
 
-        if len(temp_year_indices) >= 2:
-            for row in table.rows:
-                first_cell = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower() if \
-                row.cells[0].paragraphs else ''
-                if 'выручка' in first_cell:
-                    year_indices = temp_year_indices
-                    break
+        if len(temp_year_indices) < 2:
+            continue
 
-        if year_indices:
-            last_years = sorted(year_indices, reverse=True)[:4]
-            for row in table.rows[1:]:
-                if len(row.cells) < max(year_indices.values()) + 1:
-                    continue
+        # Убедимся, что это нужная таблица (по ключу "Выручка")
+        has_revenue_row = any(
+            "выручка" in extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower()
+            for row in table.rows if row.cells and row.cells[0].paragraphs
+        )
+        if not has_revenue_row:
+            continue
 
-                row_name = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip() if row.cells[
-                    0].paragraphs else ''
-                if not row_name:
-                    continue
+        # Сортируем года
+        sorted_years = sorted(temp_year_indices.keys())
 
-                values = {}
-                for y in last_years:
-                    idx = year_indices[y]
-                    if idx < len(row.cells) and row.cells[idx].paragraphs:
-                        val = extract_text_without_strikethrough(row.cells[idx].paragraphs[0]).strip().replace(' ',
-                                                                                                               '').replace(
-                            '–', '0')
-                        values[y] = val
+        for row in table.rows[1:]:
+            if len(row.cells) < max(temp_year_indices.values()) + 1:
+                continue
 
-                if any(values.values()):
-                    financial_results[row_name] = values
-            break
+            row_name = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip() if row.cells[0].paragraphs else ''
+            if not row_name:
+                continue
+
+            values = {}
+            all_none = True
+
+            for year, idx in temp_year_indices.items():
+                val = ''
+                if idx < len(row.cells) and row.cells[idx].paragraphs:
+                    val = extract_text_without_strikethrough(row.cells[idx].paragraphs[0]).strip()
+
+                val_clean = val.replace(' ', '').replace('–', '').strip()
+                if val_clean:
+                    values[year] = val_clean
+                    all_none = False
+                else:
+                    values[year] = None
+
+            if not all_none:
+                financial_results[row_name] = values
+
+        break  # Обрабатываем только первую подходящую таблицу
 
     return financial_results
 
