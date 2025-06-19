@@ -538,36 +538,58 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
+    import docx2txt
+    import re
+
     full_text = docx2txt.process(filepath)
 
     if not full_text or "Ближайшие связи – Актуальные" not in full_text:
         print("Блок 'Ближайшие связи – Актуальные' не найден.")
         return {"Ближайшие связи": {}}
 
-    block_text = full_text.split("Ближайшие связи – Актуальные", 1)[-1].strip()
+    # Извлекаем только блок "Ближайшие связи – Актуальные"
+    block_lines = full_text.split("Ближайшие связи – Актуальные", 1)[-1].splitlines()
+    cleaned_block_lines = []
+    for line in block_lines:
+        if "Ближайшие связи –" in line and "Актуальные" not in line:
+            break
+        cleaned_block_lines.append(line.strip())
 
-    stop_keywords = ["Финансовый анализ", "Банкротство", "Суды", "Рекомендации"]
-    for stop in stop_keywords:
-        if stop in block_text:
-            block_text = block_text.split(stop, 1)[0].strip()
-
-    lines = [line.strip() for line in block_text.splitlines() if line.strip()]
+    lines = [l for l in cleaned_block_lines if l]
 
     related_companies = {}
     current = None
     current_key = None
+    last_key_was_participant = False  # чтобы отфильтровывать мусор из строк участников
 
     for i, line in enumerate(lines):
         clean_line = line.lstrip("▶►•").strip()
 
-        # Пропуск мусора
+        # Пропуск мусорных строк
         if ("контур.фокус" in clean_line.lower()
                 or "по данным" in clean_line.lower()
                 or "на основании" in clean_line.lower()):
             continue
 
-        # Новый блок
+        # Если предыдущая строка была ключом "Участники", эту пропускаем
+        if last_key_was_participant:
+            last_key_was_participant = False
+            continue
+
+        # Новый блок компании
         if re.match(r'^(ООО|АО|ПАО|ИП)\s', clean_line):
+            # Признаки участника: ИНН + %, или руб., или "доля"
+            if re.search(r'ИНН.*\d{10,12}.*(%|руб\.|доля)', clean_line.lower()):
+                continue
+            if "%" in clean_line or "доля" in clean_line.lower() or "руб" in clean_line.lower():
+                continue
+
+            # Проверка на дублирование (без пробелов и регистра)
+            normalized_key = re.sub(r'\s+', '', clean_line).lower()
+            if any(re.sub(r'\s+', '', k).lower() == normalized_key for k in related_companies):
+                continue
+
+            # Сохраняем предыдущую компанию
             if current_key and current:
                 related_companies[current_key] = current
 
@@ -583,7 +605,7 @@ def extract_related_companies_from_path(filepath):
         if not current:
             continue
 
-        # Реквизиты — если содержат ИНН или ОГРН
+        # Реквизиты
         if "инн" in clean_line.lower() or "огрн" in clean_line.lower():
             _, inn, ogrn = extract_inn_ogrn(clean_line)
             if inn:
@@ -604,6 +626,8 @@ def extract_related_companies_from_path(filepath):
             participant = full_text.split("100%")[0].strip() + "100%" if "100%" in full_text else full_text
             participant = re.sub(r"\xa0", " ", participant)
             current["Участники"].append(participant)
+            last_key_was_participant = True
+            continue
 
         # Адрес
         if clean_line.lower() == "адрес" and i + 1 < len(lines):
@@ -611,11 +635,11 @@ def extract_related_companies_from_path(filepath):
         elif not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', clean_line.lower()):
             current["Адрес"] = clean_line
 
-    # Последний блок
+    # Сохраняем последнюю компанию
     if current_key and current:
         related_companies[current_key] = current
 
-    return related_companies
+    return {"Ближайшие связи": related_companies}
 
 
 def parsing_all_docx(docx_path):
