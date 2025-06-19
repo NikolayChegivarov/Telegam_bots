@@ -118,6 +118,86 @@ def fill_table4(table, data: dict):
         row_cells[2].text = pledge.get("Залогодержатель", "")
 
 
+def fill_table5(table, data: dict):
+    """Заполнение таблицы 5 - Аффилированность и ближайшие связи"""
+    # Удаляем все строки после заголовка (оставляем только строку с заголовками)
+    while len(table.rows) > 1:
+        table._tbl.remove(table.rows[1]._tr)
+
+    # Получаем данные
+    links_data = data.get("Ближайшие связи", {})
+    if isinstance(links_data, dict) and "Ближайшие связи" in links_data:
+        links_data = links_data["Ближайшие связи"]
+
+    for company_name, company_info in links_data.items():
+        row_cells = table.add_row().cells
+
+        # 1. Наименование и ИНН
+        inn = company_info.get("Реквизиты", {}).get("ИНН", "")
+        row_cells[0].text = f"{company_name}\nИНН: {inn}"
+
+        # 2. Генеральный директор
+        gen_dir = company_info.get("Генеральный директор", "").strip(", ")
+        row_cells[1].text = gen_dir
+
+        # 3. Участники
+        participants = company_info.get("Участники", [])
+        formatted_participants = "\n".join(
+            f"{i + 1}) {p.strip('► ').strip()}" for i, p in enumerate(participants)
+        )
+        row_cells[2].text = formatted_participants
+
+        # 4. Адрес
+        row_cells[3].text = company_info.get("Адрес", "")
+
+        # 5. Взаимосвязь — пусто или логика
+        row_cells[4].text = ""
+
+
+def fill_table13(table, data: dict):
+    """Заполнение таблицы 13 — Отчет о финансовых результатах (без 'конец')"""
+    fin_data = data.get("Отчет о финансовых результатах", {})
+
+    all_years = set()
+    normalized_data = {}
+
+    # Преобразуем все ключи годов к числовому виду (строки типа '2021')
+    for indicator, year_values in fin_data.items():
+        normalized_data[indicator] = {}
+        for raw_year, value in year_values.items():
+            match = re.search(r"\d{4}", str(raw_year))
+            if match:
+                year = match.group(0)
+                all_years.add(year)
+                if value is not None:
+                    normalized_data[indicator][year] = value
+
+    sorted_years = sorted(all_years, key=int)
+
+    # Вставляем заголовки: просто годы — 2020, 2021 и т.д.
+    for col_idx, year in enumerate(sorted_years):
+        if col_idx + 1 < len(table.columns):
+            table.cell(0, col_idx + 1).text = year
+
+    # Сопоставляем строки по названиям
+    row_mapping = {}
+    for row_idx in range(1, len(table.rows)):
+        key = table.cell(row_idx, 0).text.strip()
+        if key:
+            row_mapping[key] = row_idx
+
+    # Заполняем значения по годам и строкам
+    for indicator, year_values in normalized_data.items():
+        row_idx = row_mapping.get(indicator)
+        if row_idx is None:
+            continue
+        for col_idx, year in enumerate(sorted_years):
+            if col_idx + 1 < len(table.columns):
+                value = year_values.get(year)
+                if value is not None:
+                    table.cell(row_idx, col_idx + 1).text = str(value)
+
+
 def save_filled_doc(template_path: str, output_path: str, data: dict):
     """Основная функция для заполнения шаблона документа"""
     document = Document(template_path)
@@ -126,5 +206,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     fill_table1(document.tables[0], data)  # Таблица 1
     fill_table2(document.tables[1], data)  # Таблица 2
     fill_table4(document.tables[3], data)  # Таблица 4
+    fill_table5(document.tables[4], data)  # Таблица 5
+    fill_table13(document.tables[12], data)  # Таблица 13
 
     document.save(output_path)

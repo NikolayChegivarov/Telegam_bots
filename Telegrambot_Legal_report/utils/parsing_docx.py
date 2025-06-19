@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 import docx2txt
 from docx.table import Table
 import os
-import re
+
 
 def extract_inn_ogrn(text):
     """Извлекает ИНН и ОГРН из строки и возвращает очищенный текст без ИНН/ОГРН, а также отдельные значения."""
@@ -233,7 +233,8 @@ def extract_staff_info(doc):
 
 
 def extract_founders(doc):
-    """Извлекает информацию об учредителях, деля их на актуальных и неактуальных по зачеркнутости ФИО или отсутствию доли."""
+    """Извлекает информацию об учредителях,
+    деля их на актуальных и неактуальных по зачеркнутости ФИО или отсутствию доли."""
     actual = []
     outdated = []
 
@@ -313,7 +314,8 @@ def extract_founders(doc):
 
 
 def extract_collaterals(doc):
-    """Извлекает 'Залогодатель', 'Залогодержатель' и 'Дата залога' без фильтрации зачёркнутого текста."""
+    """Извлекает 'Залогодатель', 'Залогодержатель' и 'Дата залога'
+    без фильтрации зачёркнутого текста."""
     collaterals = []
 
     date_pattern = re.compile(r'от\s+(\d{2}\.\d{2}\.\d{4})')
@@ -538,8 +540,6 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
-    import docx2txt
-    import re
 
     full_text = docx2txt.process(filepath)
 
@@ -639,7 +639,7 @@ def extract_related_companies_from_path(filepath):
     if current_key and current:
         related_companies[current_key] = current
 
-    return {"Ближайшие связи": related_companies}
+    return related_companies
 
 
 def parsing_all_docx(docx_path):
