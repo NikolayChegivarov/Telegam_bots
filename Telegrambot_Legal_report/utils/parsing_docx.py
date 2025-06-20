@@ -314,40 +314,42 @@ def extract_founders(doc):
 
 
 def extract_collaterals(doc):
-    """Извлекает 'Залогодатель', 'Залогодержатель' и 'Дата залога'
-    без фильтрации зачёркнутого текста."""
+    """Извлекает сведения о залогах: залогодатель, залогодержатель,
+    дата залога, срок залога и заложенное имущество."""
     collaterals = []
-
     date_pattern = re.compile(r'от\s+(\d{2}\.\d{2}\.\d{4})')
 
     for table in doc.tables:
+        if len(table.columns) < 2:
+            continue
+
         collateral_entry = {
             'Залогодатель': '',
             'Залогодержатель': '',
-            'Дата залога': ''
+            'Дата залога': '',
+            'Срок залога': '',
+            'Заложенное имущество': ''
         }
 
         for row in table.rows:
-            cells = row.cells
-            if len(cells) < 2:
+            if len(row.cells) < 2:
                 continue
 
-            # Получаем весь текст ячейки без фильтрации
-            left = ' '.join(p.text.strip() for p in cells[0].paragraphs if p.text.strip()).strip()
-            right = ' '.join(p.text.strip() for p in cells[1].paragraphs if p.text.strip()).strip()
+            key = row.cells[0].text.strip().lower()
+            value = row.cells[1].text.strip()
 
-            if 'залогодатель' in left.lower() and not collateral_entry['Залогодатель']:
-                collateral_entry['Залогодатель'] = right
-                continue
-
-            if 'залогодержатель' in left.lower() and not collateral_entry['Залогодержатель']:
-                collateral_entry['Залогодержатель'] = right
-                continue
-
-            if 'договор' in left.lower() or 'договор' in right.lower():
-                match = date_pattern.search(left + ' ' + right)
-                if match and not collateral_entry['Дата залога']:
+            if 'залогодатель' in key:
+                collateral_entry['Залогодатель'] = value
+            elif 'залогодержатель' in key:
+                collateral_entry['Залогодержатель'] = value
+            elif 'договор' in key:
+                match = date_pattern.search(value)
+                if match:
                     collateral_entry['Дата залога'] = match.group(1)
+            elif 'срок исполн' in key:
+                collateral_entry['Срок залога'] = value
+            elif 'описание' in key:
+                collateral_entry['Заложенное имущество'] = value
 
         if any(collateral_entry.values()):
             collaterals.append(collateral_entry)

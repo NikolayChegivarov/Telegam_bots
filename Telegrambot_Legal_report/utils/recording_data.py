@@ -103,21 +103,6 @@ def fill_table2(table, data: dict):
     table.cell(2, 0).text = "Средняя заработная плата"
 
 
-def fill_table4(table, data: dict):
-    """Заполнение таблицы 4 - Сведения о залоге долей"""
-    # Удаляем строку-шаблон (вторая строка таблицы)
-    if len(table.rows) > 1:
-        tbl = table._tbl
-        tbl.remove(tbl.tr_lst[1])  # удаление второй строки на уровне XML
-
-    pledges = data.get("Сведения о залогах", [])
-    for pledge in pledges:
-        row_cells = table.add_row().cells
-        row_cells[0].text = pledge.get("Залогодатель", "")
-        row_cells[1].text = pledge.get("Дата залога", "")
-        row_cells[2].text = pledge.get("Залогодержатель", "")
-
-
 def fill_table5(table, data: dict):
     """Заполнение таблицы 5 - Аффилированность и ближайшие связи"""
     # Удаляем все строки после заголовка (оставляем только строку с заголовками)
@@ -275,7 +260,6 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     # Заполняем таблицы через отдельные функции
     fill_table1(document.tables[0], data)  # Таблица 1 Основные сведения о компании
     fill_table2(document.tables[1], data)  # Таблица 2 Сведения о сотрудниках
-    fill_table4(document.tables[3], data)  # Таблица 4 Сведения о залоге долей
     fill_table5(document.tables[4], data)  # Таблица 5 Аффилированность и Ближайшие связи
     fill_table6(document.tables[5], data)  # Таблица 6 Основных средств и дебиторской задолженности
     fill_table9(document.tables[8], data)  # Таблица 9 Сведения о лизинге
