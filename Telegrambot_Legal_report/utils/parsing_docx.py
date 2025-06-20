@@ -356,13 +356,14 @@ def extract_collaterals(doc):
 
 
 def extract_leasing_info(doc):
-    """Извлекает информацию о лизинге."""
+    """Извлекает информацию о лизинге, включая полное наименование лизингодателя."""
     leasing_info_all = []
+
     for table in doc.tables:
         if len(table.columns) != 2 or len(table.rows) < 5:
             continue
 
-        first_cell_text = extract_text_without_strikethrough(table.cell(0, 0).paragraphs[0]).strip()
+        first_cell_text = table.cell(0, 0).text.strip()
         if not re.match(r'\d{2}\.\d{2}\.\d{4}', first_cell_text):
             continue
 
@@ -374,29 +375,38 @@ def extract_leasing_info(doc):
         }
 
         for row in table.rows:
-            key = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower()
-            value = extract_text_without_strikethrough(row.cells[1].paragraphs[0]).strip()
+            if len(row.cells) < 2:
+                continue
 
-            if key.startswith("лизингодатель"):
-                if "Сведения скрыты" in value:
-                    data["Лизингодатель"] = "Сведения скрыты"
-                else:
-                    name, inn, ogrn = extract_inn_ogrn(value)
-                    data["Лизингодатель"] = f"{name}, ИНН {inn}, ОГРН {ogrn}".strip(', ')
-            elif key.startswith("период лизинга"):
-                data["Период лизинга"] = value
-            elif key.startswith("категория"):
-                data["Категория"] = value
-            elif key.startswith("статус"):
-                data["Текущий статус"] = value.split('\n')[0].strip()
+            key_cell = row.cells[0].text.strip().lower()
+            val_cell = row.cells[1].text.strip()
+
+            if not key_cell:
+                continue
+
+            if key_cell.startswith("лизингодатель"):
+                # Убираем символы типа "— " в начале, если они есть
+                value = val_cell.lstrip("—–—-– ").strip()
+                data["Лизингодатель"] = value
+
+            elif key_cell.startswith("период лизинга"):
+                data["Период лизинга"] = val_cell
+
+            elif key_cell.startswith("категория"):
+                data["Категория"] = val_cell
+
+            elif key_cell.startswith("статус"):
+                data["Текущий статус"] = val_cell.split('\n')[0].strip()
 
         if data["Лизингодатель"] or data["Категория"]:
             leasing_info_all.append(data)
 
+    # Оставляем только действующие договоры
     not_finished = [
-        x for x in leasing_info_all
-        if 'завершился' not in x.get('Текущий статус', '').lower()
+        item for item in leasing_info_all
+        if 'завершился' not in item.get('Текущий статус', '').lower()
     ]
+
     if not leasing_info_all:
         return ["Информации по лизингу нет"]
     if not not_finished:
