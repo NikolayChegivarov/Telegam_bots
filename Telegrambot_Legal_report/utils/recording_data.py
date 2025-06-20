@@ -110,7 +110,7 @@ def fill_table4(table, data: dict):
         tbl = table._tbl
         tbl.remove(tbl.tr_lst[1])  # удаление второй строки на уровне XML
 
-    pledges = data.get("Сведения о залоге долей", [])
+    pledges = data.get("Сведения о залогах", [])
     for pledge in pledges:
         row_cells = table.add_row().cells
         row_cells[0].text = pledge.get("Залогодатель", "")

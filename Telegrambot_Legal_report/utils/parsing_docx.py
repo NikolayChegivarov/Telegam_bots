@@ -683,7 +683,7 @@ def parsing_all_docx(docx_path):
             'Среднесписочная численность': {'year_1': '', 'year_2': '', 'year_3': ''},
             'Расходы на оплату труда': {'year_1': '', 'year_2': '', 'year_3': ''},
         },
-        'Сведения о залоге долей': [],
+        'Сведения о залогах': [],
         'Сведения о лизинге': [],
         'Кредиторская задолженность': {'year_1': '', 'year_2': '', 'year_3': ''},
         'Отчет о финансовых результатах': {},
@@ -717,7 +717,7 @@ def parsing_all_docx(docx_path):
         company_data.update(basic_info)
         company_data['Сведения о сотрудниках'] = staff_info
         company_data['Учредители/участники'] = founders
-        company_data['Сведения о залоге долей'] = collaterals
+        company_data['Сведения о залогах'] = collaterals
         company_data['Сведения о лизинге'] = leasing_info
         company_data['Кредиторская задолженность'] = credit_debt
         company_data['Отчет о финансовых результатах'] = financial_results
