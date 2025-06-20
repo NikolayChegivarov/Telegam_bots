@@ -180,6 +180,23 @@ def fill_table6(table, data: dict):
                 table.cell(2, col).text = f"{int(val):,}".replace(",", " ") + " руб."
 
 
+def fill_table8(table, data: dict):
+    """Заполнение таблицы 8 — Сведения о залогах (Залогодержатель, дата, срок, имущество)"""
+    items = data.get("Сведения о залогах", [])
+
+    # Удаляем все строки, кроме заголовка
+    while len(table.rows) > 1:
+        table._tbl.remove(table.rows[1]._tr)
+
+    for idx, item in enumerate(items, 1):
+        row = table.add_row().cells
+        row[0].text = str(idx)
+        row[1].text = item.get("Залогодержатель", "")
+        row[2].text = item.get("Дата залога", "")
+        row[3].text = item.get("Срок залога", "") or ""
+        row[4].text = item.get("Заложенное имущество", "") or ""
+
+
 def fill_table9(table, data: dict):
     """Заполнение таблицы 9 — Сведения о лизинге с подстановкой если лизингодатель отсутствует"""
     leasers = data.get("Сведения о лизинге", [])
@@ -262,7 +279,9 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     fill_table2(document.tables[1], data)  # Таблица 2 Сведения о сотрудниках
     fill_table5(document.tables[4], data)  # Таблица 5 Аффилированность и Ближайшие связи
     fill_table6(document.tables[5], data)  # Таблица 6 Основных средств и дебиторской задолженности
+    fill_table8(document.tables[7], data)  # Таблица 8 – Сведения о залогах
     fill_table9(document.tables[8], data)  # Таблица 9 Сведения о лизинге
+
     fill_table13(document.tables[12], data)  # Таблица 13 Отчет о финансовых результатах
 
     document.save(output_path)
