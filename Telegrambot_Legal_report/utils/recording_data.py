@@ -154,6 +154,76 @@ def fill_table5(table, data: dict):
         row_cells[4].text = ""
 
 
+def fill_table6(table, data: dict):
+    """Заполнение таблицы 6 — Сведения о размере основных средств и дебиторской задолженности"""
+    import re
+
+    values = data.get("Основные средства и дебиторка", {})
+    fixed_assets = values.get("Основные средства", {})
+    receivables = values.get("Дебиторская задолженность", {})
+
+    # Получаем список годов и значений
+    year_map = {}  # year: column_index
+
+    years = []
+    for key in ['year_3', 'year_2', 'year_1']:
+        y_fixed = fixed_assets.get(key, {})
+        y_receiv = receivables.get(key, {})
+
+        year = next(iter(y_fixed or y_receiv), None)
+        if year:
+            years.append(year)
+
+    # Заполняем заголовки
+    for col_idx, year in enumerate(years):
+        if col_idx + 1 < len(table.columns):
+            table.cell(0, col_idx + 1).text = year
+            year_map[year] = col_idx + 1  # столбец, начиная с 1 (т.к. 0 — метка строки)
+
+    # Заполнение строки "Размер основных средств"
+    for key, year_data in fixed_assets.items():
+        for year, val in year_data.items():
+            col = year_map.get(year)
+            if col:
+                table.cell(1, col).text = f"{int(val):,}".replace(",", " ") + " руб."
+
+    # Заполнение строки "Дебиторская задолженность"
+    for key, year_data in receivables.items():
+        for year, val in year_data.items():
+            col = year_map.get(year)
+            if col:
+                table.cell(2, col).text = f"{int(val):,}".replace(",", " ") + " руб."
+
+
+def fill_table9(table, data: dict):
+    """Заполнение таблицы 9 — Сведения о лизинге с подстановкой если лизингодатель отсутствует"""
+    leasers = data.get("Сведения о лизинге", [])
+
+    if not isinstance(leasers, list):
+        print("ОШИБКА: Сведения о лизинге не являются списком.")
+        return
+
+    # Удаляем все строки кроме заголовка
+    while len(table.rows) > 1:
+        table._tbl.remove(table.rows[1]._tr)
+
+    for idx, lease in enumerate(leasers, start=1):
+        if not isinstance(lease, dict):
+            continue
+
+        row_cells = table.add_row().cells
+
+        row_cells[0].text = str(idx)
+
+        # Если нет значения — подставляем формулировку
+        leaser = lease.get("Лизингодатель", "").strip()
+        row_cells[1].text = leaser if leaser else "Сведения о лизингодателе отсутствуют"
+
+        row_cells[2].text = lease.get("Период лизинга", "")
+        row_cells[3].text = lease.get("Категория", "")
+        row_cells[4].text = lease.get("Текущий статус", "")
+
+
 def fill_table13(table, data: dict):
     """Заполнение таблицы 13 — Отчет о финансовых результатах (без 'конец')"""
     fin_data = data.get("Отчет о финансовых результатах", {})
@@ -203,10 +273,12 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     document = Document(template_path)
 
     # Заполняем таблицы через отдельные функции
-    fill_table1(document.tables[0], data)  # Таблица 1
-    fill_table2(document.tables[1], data)  # Таблица 2
-    fill_table4(document.tables[3], data)  # Таблица 4
-    fill_table5(document.tables[4], data)  # Таблица 5
-    fill_table13(document.tables[12], data)  # Таблица 13
+    fill_table1(document.tables[0], data)  # Таблица 1 Основные сведения о компании
+    fill_table2(document.tables[1], data)  # Таблица 2 Сведения о сотрудниках
+    fill_table4(document.tables[3], data)  # Таблица 4 Сведения о залоге долей
+    fill_table5(document.tables[4], data)  # Таблица 5 Аффилированность и ближайшие связи
+    fill_table6(document.tables[5], data)  # Таблица 6 Сведения о размере основных средств и дебиторской задолженности
+    fill_table9(document.tables[8], data)  # Таблица 9 Сведения о лизинге
+    fill_table13(document.tables[12], data)  # Таблица 13 Отчет о финансовых результатах
 
     document.save(output_path)
