@@ -15,20 +15,17 @@ def extract_inn_ogrn(text):
     """Извлекает ИНН и ОГРН из строки и возвращает очищенный текст без ИНН/ОГРН, а также отдельные значения."""
     inn_match = re.search(r'\bИНН[\s:\xa0]*([0-9]{10,12})\b', text)
     ogrn_match = re.search(r'\bОГРН[\s:\xa0]*([0-9]{13})\b', text)
-
     inn = inn_match.group(1) if inn_match else ''
     ogrn = ogrn_match.group(1) if ogrn_match else ''
-
-    # Удалим из строки все фрагменты с ИНН и ОГРН
     cleaned_text = re.sub(r'ИНН[\s:\xa0]*[0-9]{10,12}', '', text)
     cleaned_text = re.sub(r'ОГРН[\s:\xa0]*[0-9]{13}', '', cleaned_text)
-    cleaned_text = cleaned_text.strip(" ,–—\u2002")
-
-    return cleaned_text, inn, ogrn
+    return cleaned_text.strip(" ,–—\u2002"), inn, ogrn
 
 
 def extract_text_from_cell(cell):
     """Извлекает и объединяет текст из всех непустых параграфов ячейки."""
+    if not hasattr(cell, 'paragraphs'):
+        return ''
     return '\n'.join(
         paragraph.text.strip()
         for paragraph in cell.paragraphs
@@ -38,18 +35,18 @@ def extract_text_from_cell(cell):
 
 def extract_text_without_strikethrough(paragraph):
     """Извлекает текст из параграфа, исключая зачеркнутые части."""
+    if not hasattr(paragraph, 'runs'):
+        return ''
     return ''.join(run.text for run in paragraph.runs if not is_strikethrough(run))
 
 
 def is_strikethrough(run):
     """Проверяет, является ли текст зачеркнутым."""
-    if run.font.strike:
+    if hasattr(run.font, 'strike') and run.font.strike:
         return True
     rPr = run._element.get_or_add_rPr()
     strike = rPr.find(qn('w:strike'))
-    if strike is not None and strike.get(qn('w:val')) != '0':
-        return True
-    return False
+    return strike is not None and strike.get(qn('w:val')) != '0'
 
 
 def extract_competitive_manager(doc):
@@ -128,17 +125,14 @@ def extract_basic_info(doc):
 
     for table in doc.tables:
         for row in table.rows:
-            cells = row.cells
-            if len(cells) < 2:
+            if len(row.cells) < 2:
                 continue
 
-            key = extract_text_from_cell(cells[0])
-            value = extract_text_from_cell(cells[1])
+            key = extract_text_from_cell(row.cells[0])
+            value = extract_text_from_cell(row.cells[1])
 
             if not key and not value:
                 continue
-
-            # print(f"Ключ: {key!r} | Значение: {value!r}")  # 🐞 Отладка
 
             if "Краткое наименование" in key:
                 basic_info['Краткое наименование'] = value
@@ -180,21 +174,46 @@ def extract_staff_info(doc):
         rows = table.rows
         i = 0
         while i < len(rows):
-            cells = rows[i].cells
-            key = extract_text_without_strikethrough(cells[0].paragraphs[0]).strip().lower() if cells[0].paragraphs else ''
-            value = extract_text_without_strikethrough(cells[1].paragraphs[0]).strip() if len(cells) > 1 and cells[1].paragraphs else ''
+            if len(rows[i].cells) < 2:
+                i += 1
+                continue
+
+            key_cell = rows[i].cells[0]
+            value_cell = rows[i].cells[1] if len(rows[i].cells) > 1 else None
+
+            key = ''
+            if key_cell.paragraphs:
+                key = extract_text_without_strikethrough(key_cell.paragraphs[0]).strip().lower()
+
+            value = ''
+            if value_cell and value_cell.paragraphs:
+                value = extract_text_without_strikethrough(value_cell.paragraphs[0]).strip()
 
             # Среднесписочная численность
             if 'среднесписоч' in key:
                 text_block_count = value
                 j = i + 1
                 while j < len(rows):
-                    next_key = extract_text_without_strikethrough(rows[j].cells[0].paragraphs[0]).strip().lower() if rows[j].cells[0].paragraphs else ''
-                    next_value = extract_text_without_strikethrough(rows[j].cells[1].paragraphs[0]).strip() if len(rows[j].cells) > 1 and rows[j].cells[1].paragraphs else ''
+                    if len(rows[j].cells) < 2:
+                        j += 1
+                        continue
+
+                    next_key_cell = rows[j].cells[0]
+                    next_value_cell = rows[j].cells[1] if len(rows[j].cells) > 1 else None
+
+                    next_key = ''
+                    if next_key_cell.paragraphs:
+                        next_key = extract_text_without_strikethrough(next_key_cell.paragraphs[0]).strip().lower()
+
+                    next_value = ''
+                    if next_value_cell and next_value_cell.paragraphs:
+                        next_value = extract_text_without_strikethrough(next_value_cell.paragraphs[0]).strip()
+
                     if next_key:
                         break
                     text_block_count += "\n" + next_value
                     j += 1
+
                 matches = re.findall(r'за\s+(\d{4}):\s*([0-9]+)', text_block_count)
                 for year, val in matches:
                     staff_years_count[year] = val
@@ -206,12 +225,26 @@ def extract_staff_info(doc):
                 text_block_salary = value
                 j = i + 1
                 while j < len(rows):
-                    next_key = extract_text_without_strikethrough(rows[j].cells[0].paragraphs[0]).strip().lower() if rows[j].cells[0].paragraphs else ''
-                    next_value = extract_text_without_strikethrough(rows[j].cells[1].paragraphs[0]).strip() if len(rows[j].cells) > 1 and rows[j].cells[1].paragraphs else ''
+                    if len(rows[j].cells) < 2:
+                        j += 1
+                        continue
+
+                    next_key_cell = rows[j].cells[0]
+                    next_value_cell = rows[j].cells[1] if len(rows[j].cells) > 1 else None
+
+                    next_key = ''
+                    if next_key_cell.paragraphs:
+                        next_key = extract_text_without_strikethrough(next_key_cell.paragraphs[0]).strip().lower()
+
+                    next_value = ''
+                    if next_value_cell and next_value_cell.paragraphs:
+                        next_value = extract_text_without_strikethrough(next_value_cell.paragraphs[0]).strip()
+
                     if next_key:
                         break
                     text_block_salary += "\n" + next_value
                     j += 1
+
                 matches = re.findall(r'за\s+(\d{4}):\s*([\d\s]+)', text_block_salary)
                 for year, val in matches:
                     salary_clean = clean_sum_text(val)
@@ -239,8 +272,15 @@ def extract_founders(doc):
     outdated = []
 
     for table in doc.tables:
-        header = [extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower()
-                  for cell in table.rows[0].cells if cell.paragraphs]
+        if len(table.rows) == 0:
+            continue
+
+        header = []
+        for cell in table.rows[0].cells:
+            if cell.paragraphs and len(cell.paragraphs) > 0:
+                header.append(extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower())
+            else:
+                header.append('')
 
         col_map = {'share': None, 'sum': None, 'name': None, 'date': None}
         for idx, text in enumerate(header):
@@ -259,29 +299,36 @@ def extract_founders(doc):
         i = 1
         while i < len(table.rows):
             row = table.rows[i]
-            cells = row.cells
+            if len(row.cells) == 0:
+                i += 1
+                continue
 
             def get_full_text(cell):
+                if not hasattr(cell, 'paragraphs'):
+                    return ''
                 return '\n'.join(p.text.strip() for p in cell.paragraphs if p.text.strip()).strip()
 
             def has_strikethrough(cell):
+                if not hasattr(cell, 'paragraphs'):
+                    return False
                 for p in cell.paragraphs:
                     for run in p.runs:
                         if is_strikethrough(run) and run.text.strip():
                             return True
                 return False
 
-            share = get_full_text(cells[col_map['share']]) if col_map['share'] < len(cells) else ''
-            summ = get_full_text(cells[col_map['sum']]) if col_map['sum'] < len(cells) else ''
-            name_cell = cells[col_map['name']] if col_map['name'] < len(cells) else None
+            share = get_full_text(row.cells[col_map['share']]) if col_map['share'] < len(row.cells) else ''
+            summ = get_full_text(row.cells[col_map['sum']]) if col_map['sum'] < len(row.cells) else ''
+            name_cell = row.cells[col_map['name']] if col_map['name'] < len(row.cells) else None
             name = get_full_text(name_cell) if name_cell else ''
             has_strike = has_strikethrough(name_cell) if name_cell else False
-            date = get_full_text(cells[col_map['date']]) if col_map['date'] is not None and col_map['date'] < len(cells) else ''
+            date = get_full_text(row.cells[col_map['date']]) if col_map['date'] is not None and col_map['date'] < len(
+                row.cells) else ''
 
             # Попытка взять дату из следующей строки
             if not date and i + 1 < len(table.rows):
                 next_row = table.rows[i + 1]
-                if next_row.cells and next_row.cells[0].paragraphs:
+                if len(next_row.cells) > 0 and next_row.cells[0].paragraphs:
                     candidate = extract_text_without_strikethrough(next_row.cells[0].paragraphs[0]).strip()
                     if re.match(r'\d{2}\.\d{2}\.\d{4}', candidate):
                         date = candidate
@@ -335,8 +382,8 @@ def extract_collaterals(doc):
             if len(row.cells) < 2:
                 continue
 
-            key = row.cells[0].text.strip().lower()
-            value = row.cells[1].text.strip()
+            key = row.cells[0].text.strip().lower() if row.cells[0].text else ''
+            value = row.cells[1].text.strip() if len(row.cells) > 1 and row.cells[1].text else ''
 
             if 'залогодатель' in key:
                 collateral_entry['Залогодатель'] = value
@@ -365,7 +412,7 @@ def extract_leasing_info(doc):
         if len(table.columns) != 2 or len(table.rows) < 5:
             continue
 
-        first_cell_text = table.cell(0, 0).text.strip()
+        first_cell_text = table.cell(0, 0).text.strip() if len(table.rows) > 0 and len(table.rows[0].cells) > 0 else ''
         if not re.match(r'\d{2}\.\d{2}\.\d{4}', first_cell_text):
             continue
 
@@ -380,14 +427,13 @@ def extract_leasing_info(doc):
             if len(row.cells) < 2:
                 continue
 
-            key_cell = row.cells[0].text.strip().lower()
-            val_cell = row.cells[1].text.strip()
+            key_cell = row.cells[0].text.strip().lower() if row.cells[0].text else ''
+            val_cell = row.cells[1].text.strip() if len(row.cells) > 1 and row.cells[1].text else ''
 
             if not key_cell:
                 continue
 
             if key_cell.startswith("лизингодатель"):
-                # Убираем символы типа "— " в начале, если они есть
                 value = val_cell.lstrip("—–—-– ").strip()
                 data["Лизингодатель"] = value
 
@@ -398,7 +444,7 @@ def extract_leasing_info(doc):
                 data["Категория"] = val_cell
 
             elif key_cell.startswith("статус"):
-                data["Текущий статус"] = val_cell.split('\n')[0].strip()
+                data["Текущий статус"] = val_cell.split('\n')[0].strip() if val_cell else ''
 
         if data["Лизингодатель"] or data["Категория"]:
             leasing_info_all.append(data)
@@ -419,103 +465,129 @@ def extract_leasing_info(doc):
 def extract_credit_debt(doc):
     """Извлекает информацию о кредиторской задолженности."""
     for table in doc.tables:
-        headers = [extract_text_without_strikethrough(cell.paragraphs[0]).lower()
-                   for cell in table.rows[0].cells if cell.paragraphs]
+        if not table.rows or len(table.rows[0].cells) < 2:
+            continue
+
+        # Безопасно извлекаем заголовки
+        headers = []
+        for cell in table.rows[0].cells:
+            if cell.paragraphs and len(cell.paragraphs) > 0:
+                headers.append(extract_text_without_strikethrough(cell.paragraphs[0]).lower())
+            else:
+                headers.append('')
+
+        # Проверка, что таблица соответствует шаблону с кодами и годами
         if (len(headers) >= 4
                 and any('код' in h for h in headers)
-                and sum(re.search(r'20\d{2}', h) is not None for h in headers) >= 2):
+                and sum(re.search(r'20\\d{2}', h) is not None for h in headers) >= 2):
 
             debt_row = None
             for row in table.rows:
-                if extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower().startswith(
-                        "кредиторская задолженность"):
-                    debt_row = row
-                    break
+                if len(row.cells) == 0:
+                    continue
+                first_cell = row.cells[0]
+                if first_cell.paragraphs and len(first_cell.paragraphs) > 0:
+                    text = extract_text_without_strikethrough(first_cell.paragraphs[0]).strip().lower()
+                    if text.startswith("кредиторская задолженность"):
+                        debt_row = row
+                        break
 
             if debt_row:
                 year_val = {}
-                for idx, cell in enumerate(headers):
-                    year_match = re.search(r'(20\d{2})', cell)
-                    if year_match and idx < len(debt_row.cells):
-                        year = year_match.group(1)
-                        value = extract_text_without_strikethrough(debt_row.cells[idx].paragraphs[0]).strip().replace(
-                            ' ', '').replace('–', '0')
-                        year_val[year] = value
+                for idx, head_text in enumerate(headers):
+                    if idx >= len(debt_row.cells):
+                        continue
+                    year_match = re.search(r'(20\\d{2})', head_text)
+                    if year_match:
+                        cell = debt_row.cells[idx]
+                        if cell.paragraphs and len(cell.paragraphs) > 0:
+                            value = extract_text_without_strikethrough(cell.paragraphs[0]).strip()
+                            cleaned = value.replace(' ', '').replace('–', '0')
+                            year_val[year_match.group(1)] = cleaned
 
                 years_sorted = sorted(year_val.keys(), reverse=True)
                 slots = ['year_1', 'year_2', 'year_3']
                 res = {}
                 for i, year in enumerate(years_sorted[:3]):
-                    val = year_val[year]
-                    res[slots[i]] = f"{{'{year}': '{val}'}}"
+                    res[slots[i]] = f"{{'{year}': '{year_val[year]}'}}"
                 return res
+
     return {'year_1': '', 'year_2': '', 'year_3': ''}
 
 
 def extract_financial_results(doc):
-    """Извлекает финансовые результаты, удаляя строки без значений (заголовки)."""
-    financial_results = {}
-    year_indices = {}
+    """
+    Извлекает данные о выручке, чистой прибыли и убытке из таблиц.
+    Возвращает до трёх последних лет, упакованных по ключам year_1, year_2, year_3.
+    """
+    revenue_data = {}
 
     for table in doc.tables:
-        if len(table.rows) < 2 or len(table.columns) < 2:
+        if not table.rows or len(table.rows[0].cells) < 2:
             continue
 
-        # Заголовок таблицы
-        header_row = table.rows[0]
-        header_cells = [extract_text_without_strikethrough(cell.paragraphs[0]).strip()
-                        for cell in header_row.cells if cell.paragraphs]
+        # Безопасно извлекаем заголовки
+        headers = []
+        for cell in table.rows[0].cells:
+            if cell.paragraphs and len(cell.paragraphs) > 0:
+                headers.append(extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower())
+            else:
+                headers.append('')
 
-        temp_year_indices = {}
-        for idx, text in enumerate(header_cells):
-            match = re.search(r'(?:конец\s*)?(20\d{2})', text.lower())
-            if match:
-                year = match.group(1)
-                temp_year_indices[year] = idx
-
-        if len(temp_year_indices) < 2:
+        if len(headers) < 2:
             continue
 
-        # Убедимся, что это нужная таблица (по ключу "Выручка")
-        has_revenue_row = any(
-            "выручка" in extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower()
-            for row in table.rows if row.cells and row.cells[0].paragraphs
-        )
+        # Проверяем наличие ключевого слова в строках
+        has_revenue_row = False
+        for row in table.rows:
+            if len(row.cells) > 0 and row.cells[0].paragraphs:
+                text = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower()
+                if "выручка" in text:
+                    has_revenue_row = True
+                    break
+
         if not has_revenue_row:
             continue
 
-        # Сортируем года
-        sorted_years = sorted(temp_year_indices.keys())
-
-        for row in table.rows[1:]:
-            if len(row.cells) < max(temp_year_indices.values()) + 1:
+        # Обрабатываем строки таблицы
+        for row in table.rows:
+            if not row.cells or len(row.cells) < 2:
                 continue
 
-            row_name = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip() if row.cells[0].paragraphs else ''
-            if not row_name:
+            cell_0 = row.cells[0]
+            if not (cell_0.paragraphs and len(cell_0.paragraphs) > 0):
                 continue
 
-            values = {}
-            all_none = True
+            text = extract_text_without_strikethrough(cell_0.paragraphs[0]).strip().lower()
+            if not any(key in text for key in ['выручка', 'чистая прибыль', 'убыток']):
+                continue
 
-            for year, idx in temp_year_indices.items():
-                val = ''
-                if idx < len(row.cells) and row.cells[idx].paragraphs:
-                    val = extract_text_without_strikethrough(row.cells[idx].paragraphs[0]).strip()
+            for idx, header in enumerate(headers):
+                if idx >= len(row.cells):
+                    continue
 
-                val_clean = val.replace(' ', '').replace('–', '').strip()
-                if val_clean:
-                    values[year] = val_clean
-                    all_none = False
-                else:
-                    values[year] = None
+                year_match = re.search(r'(20\\d{2})', header)
+                if not year_match:
+                    continue
 
-            if not all_none:
-                financial_results[row_name] = values
+                year = year_match.group(1)
+                cell = row.cells[idx]
+                if not (cell.paragraphs and len(cell.paragraphs) > 0):
+                    continue
 
-        break  # Обрабатываем только первую подходящую таблицу
+                value = extract_text_without_strikethrough(cell.paragraphs[0]).strip().replace(' ', '').replace('–',
+                                                                                                                '0')
+                revenue_data.setdefault(year, {})[text] = value
 
-    return financial_results
+    # Сортировка по убыванию года
+    years_sorted = sorted(revenue_data.keys(), reverse=True)
+    slots = ['year_1', 'year_2', 'year_3']
+    result = {}
+
+    for i, year in enumerate(years_sorted[:3]):
+        result[slots[i]] = {year: revenue_data[year]}
+
+    return result if result else {'year_1': '', 'year_2': '', 'year_3': ''}
 
 
 def extract_assets_and_receivables(doc):
@@ -526,8 +598,15 @@ def extract_assets_and_receivables(doc):
     }
 
     for table in doc.tables:
-        header_cells = [extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower()
-                        for cell in table.rows[0].cells if cell.paragraphs]
+        header_cells = []
+        if not table.rows or len(table.rows[0].cells) == 0:
+            continue
+
+        for cell in table.rows[0].cells:
+            if cell.paragraphs and len(cell.paragraphs) > 0:
+                header_cells.append(extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower())
+            else:
+                header_cells.append('')
         year_to_col = {}
 
         for idx, txt in enumerate(header_cells):
@@ -541,8 +620,13 @@ def extract_assets_and_receivables(doc):
             row_дебит = None
 
             for row in table.rows:
-                first_cell = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower() if \
-                row.cells[0].paragraphs else ''
+                if len(row.cells) == 0:
+                    continue
+
+                first_cell = ''
+                if row.cells[0].paragraphs and len(row.cells[0].paragraphs) > 0:
+                    first_cell = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower()
+
                 if first_cell == "основные средства":
                     row_ос = row
                 if first_cell == "дебиторская задолженность":
@@ -551,12 +635,15 @@ def extract_assets_and_receivables(doc):
             if row_ос and row_дебит:
                 for i, year in enumerate(years_sorted):
                     idx = year_to_col[year]
-                    val_os = extract_text_without_strikethrough(row_ос.cells[idx].paragraphs[0]).strip().replace(' ',
-                                                                                                                 '').replace(
-                        '–', '0') if idx < len(row_ос.cells) and row_ос.cells[idx].paragraphs else '0'
-                    val_db = extract_text_without_strikethrough(row_дебит.cells[idx].paragraphs[0]).strip().replace(' ',
-                                                                                                                    '').replace(
-                        '–', '0') if idx < len(row_дебит.cells) and row_дебит.cells[idx].paragraphs else '0'
+                    val_os = ''
+                    if idx < len(row_ос.cells) and row_ос.cells[idx].paragraphs:
+                        val_os = extract_text_without_strikethrough(row_ос.cells[idx].paragraphs[0]).strip().replace(
+                            ' ', '').replace('–', '0')
+                    val_db = ''
+                    if idx < len(row_дебит.cells) and row_дебит.cells[idx].paragraphs:
+                        val_db = extract_text_without_strikethrough(row_дебит.cells[idx].paragraphs[0]).strip().replace(
+                            ' ', '').replace('–', '0')
+
                     result["Основные средства"][f'year_{i + 1}'] = {year: val_os}
                     result["Дебиторская задолженность"][f'year_{i + 1}'] = {year: val_db}
                 break
@@ -565,7 +652,6 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
-
     full_text = docx2txt.process(filepath)
 
     if not full_text or "Ближайшие связи – Актуальные" not in full_text:

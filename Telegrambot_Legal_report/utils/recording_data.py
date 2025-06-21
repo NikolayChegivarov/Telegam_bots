@@ -279,9 +279,8 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     fill_table2(document.tables[1], data)  # Таблица 2 Сведения о сотрудниках
     fill_table5(document.tables[4], data)  # Таблица 5 Аффилированность и Ближайшие связи
     fill_table6(document.tables[5], data)  # Таблица 6 Основных средств и дебиторской задолженности
-    fill_table8(document.tables[7], data)  # Таблица 8 – Сведения о залогах
+    fill_table8(document.tables[7], data)  # Таблица 8 Сведения о залогах
     fill_table9(document.tables[8], data)  # Таблица 9 Сведения о лизинге
-
     fill_table13(document.tables[12], data)  # Таблица 13 Отчет о финансовых результатах
 
     document.save(output_path)

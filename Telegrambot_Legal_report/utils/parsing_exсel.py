@@ -48,8 +48,8 @@ def parsing_excel_file(excel_path, company_inn=None):
             })
 
     result = {
-        "prosuzhivaemaya": prosuzhivaemaya,
-        "prosuzhennaya": prosuzhennaya
+        "Просуживаемая": prosuzhivaemaya,
+        "Просуженная": prosuzhennaya
     }
     return result
 
