@@ -9,6 +9,7 @@ import xml.etree.ElementTree as ET
 import docx2txt
 from docx.table import Table
 import os
+from docx.table import _Cell
 
 
 def extract_inn_ogrn(text):
@@ -753,6 +754,67 @@ def extract_related_companies_from_path(filepath):
     return related_companies
 
 
+def extract_share_pledge_info(doc: Document):
+    """о залоге долей."""
+
+    def is_strikethrough(cell: _Cell) -> bool:
+        for para in cell.paragraphs:
+            for run in para.runs:
+                if run.font.strike:
+                    return True
+        return False
+
+    for table in doc.tables:
+        if len(table.columns) != 4 or len(table.rows) < 2:
+            continue
+
+        rows = table.rows
+        participants = []
+
+        # Ищем всех участников (не зачеркнутые строки в 3 колонке, не содержащие "Залог доли")
+        for i in range(1, len(rows)):
+            row = rows[i]
+            name_cell = row.cells[2]
+            date_cell = row.cells[3]
+
+            name_text = name_cell.text.strip()
+            date_text = date_cell.text.strip()
+
+            if not name_text or is_strikethrough(name_cell):
+                continue
+
+            if "Залог доли Залогодержатель" not in name_text:
+                participants.append({
+                    "index": i,
+                    "name": name_text
+                })
+
+        for participant in participants:
+            next_idx = participant["index"] + 1
+            if next_idx < len(rows):
+                next_row = rows[next_idx]
+                pledge_cell = next_row.cells[2]
+                pledge_date_cell = next_row.cells[3]
+
+                pledge_text = pledge_cell.text.strip()
+                pledge_date = pledge_date_cell.text.strip()
+
+                if "Залог доли Залогодержатель" in pledge_text and not is_strikethrough(pledge_cell):
+                    if ":" in pledge_text:
+                        pledge_holder = pledge_text.split(":", 1)[1].strip()
+                    else:
+                        pledge_holder = pledge_text
+
+                    return {
+                            "Залогодатель": participant["name"],
+                            "Залогодержатель": pledge_holder,
+                            "Дата залога": pledge_date
+                    }
+
+    return "Долей в залоге нет"
+
+
+
 def parsing_all_docx(docx_path):
     """Основная функция для парсинга всего документа."""
     company_data = {
@@ -800,6 +862,7 @@ def parsing_all_docx(docx_path):
         assets_receivables = extract_assets_and_receivables(doc)
         competitive_manager = extract_competitive_manager(doc)
         related_companies = extract_related_companies_from_path(docx_path)
+        share_pledge_info = extract_share_pledge_info(doc)
 
         # Объединение данных
         company_data.update(basic_info)
@@ -812,6 +875,7 @@ def parsing_all_docx(docx_path):
         company_data['Основные средства и дебиторка'] = assets_receivables
         company_data['Конкурсный управляющий'] = competitive_manager
         company_data['Ближайшие связи'] = related_companies
+        company_data['О залоге долей'] = share_pledge_info
 
     except Exception as e:
         print(f"Ошибка при обработке файла '{docx_path}': {e}")
