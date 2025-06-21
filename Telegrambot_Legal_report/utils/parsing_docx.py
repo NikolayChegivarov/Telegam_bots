@@ -755,9 +755,10 @@ def extract_related_companies_from_path(filepath):
 
 
 def extract_share_pledge_info(doc: Document):
-    """о залоге долей."""
+    """Извлекает информацию о залоге долей с корректной обработкой ИНН."""
 
     def is_strikethrough(cell: _Cell) -> bool:
+        """Проверяет, является ли текст в ячейке зачеркнутым."""
         for para in cell.paragraphs:
             for run in para.runs:
                 if run.font.strike:
@@ -774,11 +775,14 @@ def extract_share_pledge_info(doc: Document):
         # Ищем всех участников (не зачеркнутые строки в 3 колонке, не содержащие "Залог доли")
         for i in range(1, len(rows)):
             row = rows[i]
+            if len(row.cells) < 4:
+                continue
+
             name_cell = row.cells[2]
             date_cell = row.cells[3]
 
-            name_text = name_cell.text.strip()
-            date_text = date_cell.text.strip()
+            name_text = extract_text_from_cell(name_cell)
+            date_text = extract_text_from_cell(date_cell)
 
             if not name_text or is_strikethrough(name_cell):
                 continue
@@ -793,26 +797,35 @@ def extract_share_pledge_info(doc: Document):
             next_idx = participant["index"] + 1
             if next_idx < len(rows):
                 next_row = rows[next_idx]
+                if len(next_row.cells) < 4:
+                    continue
+
                 pledge_cell = next_row.cells[2]
                 pledge_date_cell = next_row.cells[3]
 
-                pledge_text = pledge_cell.text.strip()
-                pledge_date = pledge_date_cell.text.strip()
+                pledge_text = extract_text_from_cell(pledge_cell)
+                pledge_date = extract_text_from_cell(pledge_date_cell)
 
                 if "Залог доли Залогодержатель" in pledge_text and not is_strikethrough(pledge_cell):
+                    # Извлекаем информацию о залогодержателе с корректным ИНН
                     if ":" in pledge_text:
-                        pledge_holder = pledge_text.split(":", 1)[1].strip()
+                        pledge_holder_raw = pledge_text.split(":", 1)[1].strip()
                     else:
-                        pledge_holder = pledge_text
+                        pledge_holder_raw = pledge_text
+
+                    # Очищаем текст и извлекаем ИНН
+                    pledge_holder_clean, inn, _ = extract_inn_ogrn(pledge_holder_raw)
+
+                    # Формируем итоговое имя залогодержателя
+                    pledge_holder = f"{pledge_holder_clean}, ИНН {inn}" if inn else pledge_holder_clean
 
                     return {
-                            "Залогодатель": participant["name"],
-                            "Залогодержатель": pledge_holder,
-                            "Дата залога": pledge_date
+                        "Залогодатель": participant["name"],
+                        "Залогодержатель": pledge_holder,
+                        "Дата залога": pledge_date
                     }
 
     return "Долей в залоге нет"
-
 
 
 def parsing_all_docx(docx_path):
