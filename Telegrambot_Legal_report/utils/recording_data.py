@@ -29,7 +29,9 @@ def safe_str(val):
 
 def fill_table1(table, data: dict):
     """Заполнение таблицы 1 - Основные сведения о компании"""
-    # Формируем текст для актуальных участников
+    info = data.get("Общая информация", {})
+
+    # Обработка учредителей
     actual_founders = data.get('Учредители/участники', {}).get('Актуальные участники', [])
     founders_text = ""
     for i, founder in enumerate(actual_founders, 1):
@@ -38,30 +40,34 @@ def fill_table1(table, data: dict):
         founders_text += f"{i}. {name} — {share}\n"
     founders_text = founders_text.strip()
 
-    # Директор или КУ
-    director_role = "Генеральный директор"
-    director_data = data.get("Генеральный директор", {})
-    ku_data = data.get("Конкурсный управляющий", {})
+    # Разбор ИНН/КПП
+    inn_kpp = info.get("ИНН/КПП", "")
+    if " / " in inn_kpp:
+        inn, kpp = inn_kpp.split(" / ")
+    else:
+        inn, kpp = inn_kpp, ""
 
-    if ku_data.get("ИНН") or ku_data.get("ФИО"):
-        director_role = "Конкурсный управляющий"
-        director_data = ku_data
+    # Генеральный директор
+    director_raw = info.get("Генеральный директор", "")
+    fio = ""
+    dir_inn = ""
+    if "ИНН" in director_raw:
+        parts = director_raw.split("ИНН")
+        fio = parts[0].strip(", ")
+        dir_inn = parts[1].strip()
 
-    fio = director_data.get("ФИО", "")
-    inn = director_data.get("ИНН", "")
-
-    # Заполнение ячеек таблицы
-    table.cell(0, 1).text = data.get("Краткое наименование", "")
-    table.cell(1, 1).text = data.get("ОГРН", "")
-    table.cell(2, 1).text = f"{data.get('ИНН', '')} / {data.get('КПП', '')}"
-    table.cell(3, 1).text = data.get("Юридический адрес", "")
-    table.cell(4, 1).text = data.get("Дата образования", "")
+    # Заполнение ячеек
+    table.cell(0, 1).text = info.get("Наименование", "")
+    table.cell(1, 1).text = info.get("ОГРН", "")
+    table.cell(2, 1).text = f"{inn} / {kpp}"
+    table.cell(3, 1).text = info.get("Юридический адрес", "")
+    table.cell(4, 1).text = info.get("Дата создания", "")
     table.cell(5, 1).text = founders_text
-    table.cell(6, 1).text = data.get("Уставный капитал", "")
-    table.cell(7, 0).text = director_role
-    table.cell(7, 1).text = f"{fio}, ИНН {inn}".strip(", ")
-    table.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
-    table.cell(9, 1).text = data.get("Система налогообложения", "")
+    table.cell(6, 1).text = info.get("Размер уставного капитала", "")
+    table.cell(7, 0).text = "Генеральный директор"
+    table.cell(7, 1).text = f"{fio}, ИНН {dir_inn}".strip(", ")
+    table.cell(8, 1).text = info.get("ОКВЭД (основной)", "")
+    table.cell(9, 1).text = info.get("Система налогообложения", "")
 
 
 def fill_table2(table, data: dict):
@@ -320,96 +326,94 @@ def fill_table13(table, data: dict):
                     table.cell(row_idx, col_idx + 1).text = str(value)
 
 
-def save_filled_doc(template_path: str, output_path: str, data: dict):
-    """Основная функция для заполнения шаблона документа с отчетом об успешности вставки"""
+def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
+    """Заполнение шаблона Word-отчета по данным и сохранение файла с именем по наименованию и дате"""
     document = Document(template_path)
     status = {}
 
     try:
         fill_table1(document.tables[0], data)
-        status["Краткое наименование"] = True
+        status["Общая информация"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 1:", e)
-        status["Краткое наименование"] = False
+        print("Ошибка при заполнении таблицы 1 (Общая информация):", e)
+        status["Общая информация"] = False
 
     try:
         fill_table2(document.tables[1], data)
         status["Сведения о сотрудниках"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 2:", e)
+        print("Ошибка при заполнении таблицы 2 (Сведения о сотрудниках):", e)
         status["Сведения о сотрудниках"] = False
 
     try:
         fill_table4(document.tables[3], data)
-        status["О залоге долей"] = True
+        status["Залог долей"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 4:", e)
-        status["О залоге долей"] = False
+        print("Ошибка при заполнении таблицы 4 (Залог долей):", e)
+        status["Залог долей"] = False
 
     try:
         fill_table5(document.tables[4], data)
         status["Ближайшие связи"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 5:", e)
+        print("Ошибка при заполнении таблицы 5 (Ближайшие связи):", e)
         status["Ближайшие связи"] = False
 
     try:
         fill_table6(document.tables[5], data)
         status["Основные средства и дебиторка"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 6:", e)
+        print("Ошибка при заполнении таблицы 6 (Основные средства и дебиторка):", e)
         status["Основные средства и дебиторка"] = False
 
     try:
         fill_table8(document.tables[7], data)
         status["Сведения о залогах"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 8:", e)
+        print("Ошибка при заполнении таблицы 8 (Сведения о залогах):", e)
         status["Сведения о залогах"] = False
 
     try:
         fill_table9(document.tables[8], data)
         status["Сведения о лизинге"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 9:", e)
+        print("Ошибка при заполнении таблицы 9 (Сведения о лизинге):", e)
         status["Сведения о лизинге"] = False
 
     try:
-        fill_table10(document.tables[10], data.get("Кредиторская задолженность", {}))
+        fill_table10(document.tables[10], data)
         status["Кредиторская задолженность"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 10:", e)
+        print("Ошибка при заполнении таблицы 10 (Кредиторская задолженность):", e)
         status["Кредиторская задолженность"] = False
 
     try:
         fill_table13(document.tables[12], data)
-        status["Отчет о финансовых результатах"] = True
+        status["Финансовые результаты"] = True
     except Exception as e:
-        print("Ошибка при заполнении таблицы 13:", e)
-        status["Отчет о финансовых результатах"] = False
+        print("Ошибка при заполнении таблицы 13 (Финансовые результаты):", e)
+        status["Финансовые результаты"] = False
 
-    # Конкурсный управляющий (если есть)
-    if data.get("Конкурсный управляющий", {}).get("ФИО") or data.get("Конкурсный управляющий", {}).get("ИНН"):
-        status["Конкурсный управляющий"] = True
-    else:
-        status["Конкурсный управляющий"] = False
+    # Сохранение по пути output_path (переопределим имя на основе данных)
+    filename = generate_filename(data)
+    final_path = os.path.join("Reports", filename)
+    document.save(final_path)
 
-    document.save(output_path)
-
-    # Вывод отчета
-    print("\nДОБАВЛЕНИЕ В ШАБЛОН:")
+    # Вывод финального отчета
+    print("\nЗАПОЛНЕНИЕ ТАБЛИЦ:")
     for section in [
-        "Краткое наименование",
+        "Общая информация",
         "Сведения о сотрудниках",
-        "Учредители/участники",
+        "Залог долей",
+        "Ближайшие связи",
+        "Основные средства и дебиторка",
         "Сведения о залогах",
         "Сведения о лизинге",
         "Кредиторская задолженность",
-        "Отчет о финансовых результатах",
-        "Основные средства и дебиторка",
-        "Конкурсный управляющий",
-        "Ближайшие связи",
-        "О залоге долей",
+        "Финансовые результаты",
     ]:
         mark = "✅" if status.get(section, False) else "❌"
         print(f"{section}: {mark}")
+
+    print(f"\nСохранили новый файл {filename} в папку Reports")
+    return final_path
