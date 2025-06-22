@@ -1,22 +1,17 @@
 import os
 from docx import Document
-import time
-from datetime import datetime
+# from datetime import datetime
 import re
 import ast
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
 
-def generate_filename(data: dict):
-    """Формирует имя файла в формате: 'название_организации_дата_время.docx'
-    Удаляет опасные символы из имени организации для корректного сохранения файла."""
-    org_name = data.get('org_name', 'report')
-    org_name = org_name.replace('"', '').replace("'", '')
-    org_name = re.sub(r'[<>:/\\|?*]', '', org_name)
-    # Дата и время для уникальности
-    timestamp = datetime.now().strftime('%Y-%m-%d_%H%M%S')
-    filename = f"{org_name}_{timestamp}.docx"
-    return filename
+def generate_filename(data: dict) -> str:
+    from datetime import datetime
+
+    info = data.get("Общая информация", {})
+    name = info.get("Наименование") or "Без названия"
+    name = name.replace('"', '').replace("«", "").replace("»", "").strip()
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    return f"{name}_{timestamp}.docx"
 
 
 def safe_str(val):
@@ -415,5 +410,4 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         mark = "✅" if status.get(section, False) else "❌"
         print(f"{section}: {mark}")
 
-    print(f"\nСохранили новый файл {filename} в папку Reports")
     return final_path
