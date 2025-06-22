@@ -464,12 +464,12 @@ def extract_leasing_info(doc):
 
 
 def extract_credit_debt(doc):
-    """Извлекает информацию о кредиторской задолженности."""
+    """Извлекает информацию о кредиторской задолженности по годам."""
     for table in doc.tables:
         if not table.rows or len(table.rows[0].cells) < 2:
             continue
 
-        # Безопасно извлекаем заголовки
+        # Извлекаем заголовки
         headers = []
         for cell in table.rows[0].cells:
             if cell.paragraphs and len(cell.paragraphs) > 0:
@@ -477,11 +477,12 @@ def extract_credit_debt(doc):
             else:
                 headers.append('')
 
-        # Проверка, что таблица соответствует шаблону с кодами и годами
-        if (len(headers) >= 4
-                and any('код' in h for h in headers)
-                and sum(re.search(r'20\\d{2}', h) is not None for h in headers) >= 2):
-
+        # Проверка, что таблица содержит коды и года
+        if (
+            len(headers) >= 4
+            and any('код' in h for h in headers)
+            and sum(re.search(r'20\d{2}', h) is not None for h in headers) >= 2
+        ):
             debt_row = None
             for row in table.rows:
                 if len(row.cells) == 0:
@@ -489,7 +490,7 @@ def extract_credit_debt(doc):
                 first_cell = row.cells[0]
                 if first_cell.paragraphs and len(first_cell.paragraphs) > 0:
                     text = extract_text_without_strikethrough(first_cell.paragraphs[0]).strip().lower()
-                    if text.startswith("кредиторская задолженность"):
+                    if "кредиторская задолженность" in text:
                         debt_row = row
                         break
 
@@ -498,7 +499,7 @@ def extract_credit_debt(doc):
                 for idx, head_text in enumerate(headers):
                     if idx >= len(debt_row.cells):
                         continue
-                    year_match = re.search(r'(20\\d{2})', head_text)
+                    year_match = re.search(r'(20\d{2})', head_text)
                     if year_match:
                         cell = debt_row.cells[idx]
                         if cell.paragraphs and len(cell.paragraphs) > 0:
@@ -506,11 +507,12 @@ def extract_credit_debt(doc):
                             cleaned = value.replace(' ', '').replace('–', '0')
                             year_val[year_match.group(1)] = cleaned
 
+                # Преобразуем в формат year_1, year_2, year_3
                 years_sorted = sorted(year_val.keys(), reverse=True)
                 slots = ['year_1', 'year_2', 'year_3']
                 res = {}
                 for i, year in enumerate(years_sorted[:3]):
-                    res[slots[i]] = f"{{'{year}': '{year_val[year]}'}}"
+                    res[slots[i]] = {year: year_val[year]}
                 return res
 
     return {'year_1': '', 'year_2': '', 'year_3': ''}
