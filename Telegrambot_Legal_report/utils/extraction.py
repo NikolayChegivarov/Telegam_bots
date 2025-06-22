@@ -8,7 +8,7 @@ def extract_structured_data(word_path, pdf_path, excel_path):
     """
     Извлекает и объединяет данные из трех файлов в единый словарь, готовый для шаблона.
     """
-    print("Начинаем парсинг.")
+    print("Начинаем парсинг:")
 
     data_docx = parsing_all_docx(word_path) if word_path else {}
     print("Данные из .docx файла собраны")
