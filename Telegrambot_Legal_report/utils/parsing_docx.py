@@ -567,7 +567,7 @@ def extract_financial_results(doc):
                 if idx >= len(row.cells):
                     continue
 
-                year_match = re.search(r'(20\\d{2})', header)
+                year_match = re.search(r'(20\d{2})', header)
                 if not year_match:
                     continue
 
@@ -828,70 +828,63 @@ def extract_share_pledge_info(doc: Document):
     return "Долей в залоге нет"
 
 
-def parsing_all_docx(docx_path):
-    """Основная функция для парсинга всего документа."""
-    company_data = {
-        'Краткое наименование': '',
-        'ИНН': '',
-        'КПП': '',
-        'ОГРН': '',
-        'Дата образования': '',
-        'Юридический адрес': '',
-        'Уставный капитал': '',
-        'Генеральный директор': '',
-        'Конкурсный управляющий': '',  # <== добавили ключ
-        'Учредители/участники': [],
-        'ОКВЭД(основной)': '',
-        'Сведения о сотрудниках': {
-            'Среднесписочная численность': {'year_1': '', 'year_2': '', 'year_3': ''},
-            'Расходы на оплату труда': {'year_1': '', 'year_2': '', 'year_3': ''},
-        },
-        'Сведения о залогах': [],
-        'Сведения о лизинге': [],
-        'Кредиторская задолженность': {'year_1': '', 'year_2': '', 'year_3': ''},
-        'Отчет о финансовых результатах': {},
-        'Основные средства и дебиторка': {
-            'Основные средства': {},
-            'Дебиторская задолженность': {}
-        },
-        'Ближайшие связи': []
-    }
+def log_result(name: str, result):
+    success = False
+    if isinstance(result, str):
+        success = bool(result.strip())
+    elif isinstance(result, dict):
+        success = any(bool(v) for v in result.values())
+    elif isinstance(result, list):
+        success = len(result) > 0
+    print(f"{name}: {'✅' if success else '❌'}")
 
-    if not os.path.isfile(docx_path):
-        print(f"Файл '{docx_path}' не найден.")
-        return company_data
+def parsing_all_docx(docx_path: str) -> dict:
+    doc = Document(docx_path)
+    company_data = {}
 
-    try:
-        doc = Document(docx_path)
+    basic_info = extract_basic_info(doc)
+    log_result("Краткое наименование", basic_info.get("Краткое наименование"))
+    company_data.update(basic_info)
 
-        # Извлечение данных
-        basic_info = extract_basic_info(doc)
-        staff_info = extract_staff_info(doc)
-        founders = extract_founders(doc)
-        collaterals = extract_collaterals(doc)
-        leasing_info = extract_leasing_info(doc)
-        credit_debt = extract_credit_debt(doc)
-        financial_results = extract_financial_results(doc)
-        assets_receivables = extract_assets_and_receivables(doc)
-        competitive_manager = extract_competitive_manager(doc)
-        related_companies = extract_related_companies_from_path(docx_path)
-        share_pledge_info = extract_share_pledge_info(doc)
+    employees = extract_staff_info(doc)
+    log_result("Сведения о сотрудниках", employees)
+    company_data['Сведения о сотрудниках'] = employees
 
-        # Объединение данных
-        company_data.update(basic_info)
-        company_data['Сведения о сотрудниках'] = staff_info
-        company_data['Учредители/участники'] = founders
-        company_data['Сведения о залогах'] = collaterals
-        company_data['Сведения о лизинге'] = leasing_info
-        company_data['Кредиторская задолженность'] = credit_debt
-        company_data['Отчет о финансовых результатах'] = financial_results
-        company_data['Основные средства и дебиторка'] = assets_receivables
-        company_data['Конкурсный управляющий'] = competitive_manager
-        company_data['Ближайшие связи'] = related_companies
-        company_data['О залоге долей'] = share_pledge_info
+    founders = extract_founders(doc)
+    log_result("Учредители/участники", founders.get("Актуальные участники") or founders.get("Неактуальные участники"))
+    company_data['Учредители/участники'] = founders
 
-    except Exception as e:
-        print(f"Ошибка при обработке файла '{docx_path}': {e}")
+    collaterals = extract_collaterals(doc)
+    log_result("Сведения о залогах", collaterals)
+    company_data['Сведения о залогах'] = collaterals
+
+    leasing = extract_leasing_info(doc)
+    log_result("Сведения о лизинге", leasing)
+    company_data['Сведения о лизинге'] = leasing
+
+    credit_debt = extract_credit_debt(doc)
+    log_result("Кредиторская задолженность", credit_debt)
+    company_data['Кредиторская задолженность'] = credit_debt
+
+    financials = extract_financial_results(doc)
+    log_result("Отчет о финансовых результатах", financials)
+    company_data['Отчет о финансовых результатах'] = financials
+
+    assets = extract_assets_and_receivables(doc)
+    log_result("Основные средства и дебиторка", assets)
+    company_data['Основные средства и дебиторка'] = assets
+
+    manager = extract_competitive_manager(doc)
+    log_result("Конкурсный управляющий", manager)
+    company_data['Конкурсный управляющий'] = manager
+
+    connections = extract_related_companies_from_path(docx_path)
+    log_result("Ближайшие связи", connections)
+    company_data['Ближайшие связи'] = connections
+
+    share_pledge_info = extract_share_pledge_info(doc)
+    log_result("О залоге долей", share_pledge_info)
+    company_data["О залоге долей"] = share_pledge_info
 
     return company_data
 

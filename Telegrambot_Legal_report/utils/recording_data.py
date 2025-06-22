@@ -4,6 +4,8 @@ import time
 from datetime import datetime
 import re
 import ast
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
 def generate_filename(data: dict):
     """Формирует имя файла в формате: 'название_организации_дата_время.docx'
@@ -27,6 +29,7 @@ def safe_str(val):
 
 def fill_table1(table, data: dict):
     """Заполнение таблицы 1 - Основные сведения о компании"""
+    print("Заносим ОСНОВНЫЕ СВЕДЕНИЯ")
     # Формируем текст для актуальных участников
     actual_founders = data.get('Учредители/участники', {}).get('Актуальные участники', [])
     founders_text = ""
@@ -61,9 +64,12 @@ def fill_table1(table, data: dict):
     table.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
     table.cell(9, 1).text = data.get("Система налогообложения", "")
 
+    print("ОСНОВНЫЕ СВЕДЕНИЯ занесены")
+
 
 def fill_table2(table, data: dict):
     """Заполнение таблицы 2 - Сведения о сотрудниках"""
+    print("Заносим Сведения о сотрудниках")
     def extract_value(dictionary_str):
         try:
             parsed = ast.literal_eval(dictionary_str)
@@ -101,10 +107,39 @@ def fill_table2(table, data: dict):
     # Устанавливаем подписи строк явно
     table.cell(1, 0).text = "Среднесписочная численность"
     table.cell(2, 0).text = "Средняя заработная плата"
+    print("Сведения о сотрудниках занесены")
+
+
+def fill_table4(table, data: dict):
+    """Заполнение таблицы 4 — Сведения о залоге долей, или удаление таблицы"""
+    print("Заносим Сведения о залоге долей.")
+    value = data.get("О залоге долей")
+
+    if isinstance(value, str) and "нет" in value.lower():
+        # Удаляем таблицу, если информация отсутствует
+        tbl_element = table._tbl
+        parent_element = tbl_element.getparent()
+        parent_element.remove(tbl_element)
+
+        # Добавляем параграф вместо таблицы
+        paragraph = table._parent.add_paragraph("Долей в залоге нет")
+        run = paragraph.runs[0]
+        run.italic = True
+        return
+
+    if not isinstance(value, dict):
+        print("⚠️ Ожидался словарь или строка в поле 'О залоге долей'")
+        return
+
+    table.cell(1, 0).text = value.get("Залогодатель", "")
+    table.cell(1, 1).text = value.get("Дата залога", "")
+    table.cell(1, 2).text = value.get("Залогодержатель", "")
+    print("Сведения о залоге долей занесены")
 
 
 def fill_table5(table, data: dict):
     """Заполнение таблицы 5 - Аффилированность и ближайшие связи"""
+    print("Заносим Аффилированность и ближайшие связи")
     # Удаляем все строки после заголовка (оставляем только строку с заголовками)
     while len(table.rows) > 1:
         table._tbl.remove(table.rows[1]._tr)
@@ -137,11 +172,12 @@ def fill_table5(table, data: dict):
 
         # 5. Взаимосвязь — пусто или логика
         row_cells[4].text = ""
+        print("Аффилированность и ближайшие связи занесены")
 
 
 def fill_table6(table, data: dict):
     """Заполнение таблицы 6 — Сведения о размере основных средств и дебиторской задолженности"""
-    import re
+    print("Заносим Основные средства и дебиторку")
 
     values = data.get("Основные средства и дебиторка", {})
     fixed_assets = values.get("Основные средства", {})
@@ -178,7 +214,7 @@ def fill_table6(table, data: dict):
             col = year_map.get(year)
             if col:
                 table.cell(2, col).text = f"{int(val):,}".replace(",", " ") + " руб."
-
+    print("основные средства и дебеторка занесены")
 
 def fill_table8(table, data: dict):
     """Заполнение таблицы 8 — Сведения о залогах (Залогодержатель, дата, срок, имущество)"""
@@ -199,6 +235,7 @@ def fill_table8(table, data: dict):
 
 def fill_table9(table, data: dict):
     """Заполнение таблицы 9 — Сведения о лизинге с подстановкой если лизингодатель отсутствует"""
+    print("Заносим Сведения о лизинге")
     leasers = data.get("Сведения о лизинге", [])
 
     if not isinstance(leasers, list):
@@ -224,10 +261,12 @@ def fill_table9(table, data: dict):
         row_cells[2].text = lease.get("Период лизинга", "")
         row_cells[3].text = lease.get("Категория", "")
         row_cells[4].text = lease.get("Текущий статус", "")
+        print("Сведения о лизинге занесены")
 
 
 def fill_table13(table, data: dict):
     """Заполнение таблицы 13 — Отчет о финансовых результатах (без 'конец')"""
+    print("Заносим Отчет о финансовых результатах")
     fin_data = data.get("Отчет о финансовых результатах", {})
 
     all_years = set()
@@ -268,6 +307,7 @@ def fill_table13(table, data: dict):
                 value = year_values.get(year)
                 if value is not None:
                     table.cell(row_idx, col_idx + 1).text = str(value)
+                    print("Отчет о финансовых результатах занесены")
 
 
 def save_filled_doc(template_path: str, output_path: str, data: dict):
@@ -277,6 +317,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict):
     # Заполняем таблицы через отдельные функции
     fill_table1(document.tables[0], data)  # Таблица 1 Основные сведения о компании
     fill_table2(document.tables[1], data)  # Таблица 2 Сведения о сотрудниках
+    fill_table4(document.tables[3], data)
     fill_table5(document.tables[4], data)  # Таблица 5 Аффилированность и Ближайшие связи
     fill_table6(document.tables[5], data)  # Таблица 6 Основных средств и дебиторской задолженности
     fill_table8(document.tables[7], data)  # Таблица 8 Сведения о залогах
