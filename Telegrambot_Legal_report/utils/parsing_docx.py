@@ -78,7 +78,6 @@ def split_director_info(text):
 
     if match:
         inn = match.group(1)
-        # найти, где начинается ИНН, и отрезать всё до него для ФИО
         raw_fio = text[:text.find('ИНН')].strip(' ,')
         return {'ФИО': raw_fio, 'ИНН': inn}
     else:
@@ -111,17 +110,28 @@ def extract_first_address_block(full_address: str) -> str:
     return full_address.strip(', ')
 
 
+def format_founders(founders):
+    """Форматирует информацию об учредителях в читаемый вид"""
+    formatted = []
+    for idx, founder in enumerate(founders, 1):
+        share = founder.get('Доля в %', '')
+        name = founder.get('Наимен. и реквизиты', '')
+        formatted.append(f"{idx}. {name} — {share}")
+    return "\n".join(formatted)
+
+
 def extract_basic_info(doc):
     basic_info = {
-        'Краткое наименование': '',
+        'Наименование': '',
         'ИНН': '',
         'КПП': '',
         'ОГРН': '',
-        'Дата образования': '',
+        'Дата создания': '',
         'Юридический адрес': [],
         'Уставный капитал': '',
-        'Генеральный директор': '',
-        'ОКВЭД(основной)': ''
+        'Генеральный директор': {'ФИО': '', 'ИНН': ''},
+        'ОКВЭД (основной)': '',
+        'Учредители/участники (текущие)': []
     }
 
     for table in doc.tables:
@@ -136,7 +146,7 @@ def extract_basic_info(doc):
                 continue
 
             if "Краткое наименование" in key:
-                basic_info['Краткое наименование'] = value
+                basic_info['Наименование'] = value
             elif key == "ИНН":
                 basic_info['ИНН'] = value
             elif key == "КПП":
@@ -144,7 +154,7 @@ def extract_basic_info(doc):
             elif key == "ОГРН":
                 basic_info['ОГРН'] = value
             elif key == "Дата образования":
-                basic_info['Дата образования'] = value
+                basic_info['Дата создания'] = value
             elif "Юр. адрес" in key or "Юридический адрес" in key:
                 if value:
                     basic_info['Юридический адрес'].extend(value.split('\n'))
@@ -153,7 +163,7 @@ def extract_basic_info(doc):
             elif "Генеральный директор" in key:
                 basic_info['Генеральный директор'] = split_director_info(value)
             elif "Основной вид деятельности" in key:
-                basic_info['ОКВЭД(основной)'] = value
+                basic_info['ОКВЭД (основной)'] = value
 
     raw_address = ', '.join(
         addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
@@ -190,7 +200,6 @@ def extract_staff_info(doc):
             if value_cell and value_cell.paragraphs:
                 value = extract_text_without_strikethrough(value_cell.paragraphs[0]).strip()
 
-            # Среднесписочная численность
             if 'среднесписоч' in key:
                 text_block_count = value
                 j = i + 1
@@ -221,7 +230,6 @@ def extract_staff_info(doc):
                 i = j
                 continue
 
-            # Средняя заработная плата
             elif 'средняя заработная плата' in key or 'среднемесячная заработная плата' in key:
                 text_block_salary = value
                 j = i + 1
@@ -255,7 +263,6 @@ def extract_staff_info(doc):
 
             i += 1
 
-    # Формируем словарь результата
     slots = ['year_1', 'year_2', 'year_3']
     for idx, year in enumerate(sorted(staff_years_count.keys(), reverse=True)[:3]):
         staff_info['Среднесписочная численность'][slots[idx]] = f"{{'{year}': '{staff_years_count[year]}'}}"
@@ -267,8 +274,7 @@ def extract_staff_info(doc):
 
 
 def extract_founders(doc):
-    """Извлекает информацию об учредителях,
-    деля их на актуальных и неактуальных по зачеркнутости ФИО или отсутствию доли."""
+    """Извлекает информацию об учредителях"""
     actual = []
     outdated = []
 
@@ -326,7 +332,6 @@ def extract_founders(doc):
             date = get_full_text(row.cells[col_map['date']]) if col_map['date'] is not None and col_map['date'] < len(
                 row.cells) else ''
 
-            # Попытка взять дату из следующей строки
             if not date and i + 1 < len(table.rows):
                 next_row = table.rows[i + 1]
                 if len(next_row.cells) > 0 and next_row.cells[0].paragraphs:
@@ -338,7 +343,6 @@ def extract_founders(doc):
             name_clean, inn, _ = extract_inn_ogrn(name)
             full_name = f"{name_clean}, ИНН {inn}".strip(', ') if inn else name_clean
 
-            # Формирование записи
             record = {
                 "Доля в %": share,
                 "Доля в руб": clean_sum_text(summ),
@@ -347,7 +351,6 @@ def extract_founders(doc):
             }
 
             if any(record.values()):
-                # Критерий неактуальности: зачёркнут ИЛИ доля отсутствует/равна '–'
                 if has_strike or share.strip() == '–' or not share.strip():
                     outdated.append(record)
                 else:
@@ -362,8 +365,7 @@ def extract_founders(doc):
 
 
 def extract_collaterals(doc):
-    """Извлекает сведения о залогах: залогодатель, залогодержатель,
-    дата залога, срок залога и заложенное имущество."""
+    """Извлекает сведения о залогах"""
     collaterals = []
     date_pattern = re.compile(r'от\s+(\d{2}\.\d{2}\.\d{4})')
 
@@ -406,7 +408,7 @@ def extract_collaterals(doc):
 
 
 def extract_leasing_info(doc):
-    """Извлекает информацию о лизинге, включая полное наименование лизингодателя."""
+    """Извлекает информацию о лизинге"""
     leasing_info_all = []
 
     for table in doc.tables:
@@ -450,7 +452,6 @@ def extract_leasing_info(doc):
         if data["Лизингодатель"] or data["Категория"]:
             leasing_info_all.append(data)
 
-    # Оставляем только действующие договоры
     not_finished = [
         item for item in leasing_info_all
         if 'завершился' not in item.get('Текущий статус', '').lower()
@@ -469,7 +470,6 @@ def extract_credit_debt(doc):
         if not table.rows or len(table.rows[0].cells) < 2:
             continue
 
-        # Извлекаем заголовки
         headers = []
         for cell in table.rows[0].cells:
             if cell.paragraphs and len(cell.paragraphs) > 0:
@@ -477,11 +477,10 @@ def extract_credit_debt(doc):
             else:
                 headers.append('')
 
-        # Проверка, что таблица содержит коды и года
         if (
-            len(headers) >= 4
-            and any('код' in h for h in headers)
-            and sum(re.search(r'20\d{2}', h) is not None for h in headers) >= 2
+                len(headers) >= 4
+                and any('код' in h for h in headers)
+                and sum(re.search(r'20\d{2}', h) is not None for h in headers) >= 2
         ):
             debt_row = None
             for row in table.rows:
@@ -507,7 +506,6 @@ def extract_credit_debt(doc):
                             cleaned = value.replace(' ', '').replace('–', '0')
                             year_val[year_match.group(1)] = cleaned
 
-                # Преобразуем в формат year_1, year_2, year_3
                 years_sorted = sorted(year_val.keys(), reverse=True)
                 slots = ['year_1', 'year_2', 'year_3']
                 res = {}
@@ -519,17 +517,13 @@ def extract_credit_debt(doc):
 
 
 def extract_financial_results(doc):
-    """
-    Извлекает данные о выручке, чистой прибыли и убытке из таблиц.
-    Возвращает до трёх последних лет, упакованных по ключам year_1, year_2, year_3.
-    """
+    """Извлекает данные о выручке, чистой прибыли и убытке из таблиц."""
     revenue_data = {}
 
     for table in doc.tables:
         if not table.rows or len(table.rows[0].cells) < 2:
             continue
 
-        # Безопасно извлекаем заголовки
         headers = []
         for cell in table.rows[0].cells:
             if cell.paragraphs and len(cell.paragraphs) > 0:
@@ -540,7 +534,6 @@ def extract_financial_results(doc):
         if len(headers) < 2:
             continue
 
-        # Проверяем наличие ключевого слова в строках
         has_revenue_row = False
         for row in table.rows:
             if len(row.cells) > 0 and row.cells[0].paragraphs:
@@ -552,7 +545,6 @@ def extract_financial_results(doc):
         if not has_revenue_row:
             continue
 
-        # Обрабатываем строки таблицы
         for row in table.rows:
             if not row.cells or len(row.cells) < 2:
                 continue
@@ -582,7 +574,6 @@ def extract_financial_results(doc):
                                                                                                                 '0')
                 revenue_data.setdefault(year, {})[text] = value
 
-    # Сортировка по убыванию года
     years_sorted = sorted(revenue_data.keys(), reverse=True)
     slots = ['year_1', 'year_2', 'year_3']
     result = {}
@@ -662,7 +653,6 @@ def extract_related_companies_from_path(filepath):
         print("Блок 'Ближайшие связи – Актуальные' не найден.")
         return {"Ближайшие связи": {}}
 
-    # Извлекаем только блок "Ближайшие связи – Актуальные"
     block_lines = full_text.split("Ближайшие связи – Актуальные", 1)[-1].splitlines()
     cleaned_block_lines = []
     for line in block_lines:
@@ -675,36 +665,30 @@ def extract_related_companies_from_path(filepath):
     related_companies = {}
     current = None
     current_key = None
-    last_key_was_participant = False  # чтобы отфильтровывать мусор из строк участников
+    last_key_was_participant = False
 
     for i, line in enumerate(lines):
         clean_line = line.lstrip("▶►•").strip()
 
-        # Пропуск мусорных строк
         if ("контур.фокус" in clean_line.lower()
                 or "по данным" in clean_line.lower()
                 or "на основании" in clean_line.lower()):
             continue
 
-        # Если предыдущая строка была ключом "Участники", эту пропускаем
         if last_key_was_participant:
             last_key_was_participant = False
             continue
 
-        # Новый блок компании
         if re.match(r'^(ООО|АО|ПАО|ИП)\s', clean_line):
-            # Признаки участника: ИНН + %, или руб., или "доля"
             if re.search(r'ИНН.*\d{10,12}.*(%|руб\.|доля)', clean_line.lower()):
                 continue
             if "%" in clean_line or "доля" in clean_line.lower() or "руб" in clean_line.lower():
                 continue
 
-            # Проверка на дублирование (без пробелов и регистра)
             normalized_key = re.sub(r'\s+', '', clean_line).lower()
             if any(re.sub(r'\s+', '', k).lower() == normalized_key for k in related_companies):
                 continue
 
-            # Сохраняем предыдущую компанию
             if current_key and current:
                 related_companies[current_key] = current
 
@@ -720,7 +704,6 @@ def extract_related_companies_from_path(filepath):
         if not current:
             continue
 
-        # Реквизиты
         if "инн" in clean_line.lower() or "огрн" in clean_line.lower():
             _, inn, ogrn = extract_inn_ogrn(clean_line)
             if inn:
@@ -728,14 +711,12 @@ def extract_related_companies_from_path(filepath):
             if ogrn:
                 current["Реквизиты"]["ОГРН"] = ogrn
 
-        # Генеральный директор
         if "Генеральный директор" in clean_line and i + 1 < len(lines):
             fio_line = lines[i + 1]
             cleaned, inn, _ = extract_inn_ogrn(fio_line)
             result = f"{cleaned}, ИНН {inn}" if inn else cleaned
             current["Генеральный директор"] = result
 
-        # Участники
         if ("учредитель" in clean_line.lower() or "участник" in clean_line.lower()) and i + 1 < len(lines):
             full_text = lines[i + 1]
             participant = full_text.split("100%")[0].strip() + "100%" if "100%" in full_text else full_text
@@ -744,13 +725,11 @@ def extract_related_companies_from_path(filepath):
             last_key_was_participant = True
             continue
 
-        # Адрес
         if clean_line.lower() == "адрес" and i + 1 < len(lines):
             current["Адрес"] = lines[i + 1]
         elif not current["Адрес"] and re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', clean_line.lower()):
             current["Адрес"] = clean_line
 
-    # Сохраняем последнюю компанию
     if current_key and current:
         related_companies[current_key] = current
 
@@ -775,7 +754,6 @@ def extract_share_pledge_info(doc: Document):
         rows = table.rows
         participants = []
 
-        # Ищем всех участников (не зачеркнутые строки в 3 колонке, не содержащие "Залог доли")
         for i in range(1, len(rows)):
             row = rows[i]
             if len(row.cells) < 4:
@@ -810,16 +788,12 @@ def extract_share_pledge_info(doc: Document):
                 pledge_date = extract_text_from_cell(pledge_date_cell)
 
                 if "Залог доли Залогодержатель" in pledge_text and not is_strikethrough(pledge_cell):
-                    # Извлекаем информацию о залогодержателе с корректным ИНН
                     if ":" in pledge_text:
                         pledge_holder_raw = pledge_text.split(":", 1)[1].strip()
                     else:
                         pledge_holder_raw = pledge_text
 
-                    # Очищаем текст и извлекаем ИНН
                     pledge_holder_clean, inn, _ = extract_inn_ogrn(pledge_holder_raw)
-
-                    # Формируем итоговое имя залогодержателя
                     pledge_holder = f"{pledge_holder_clean}, ИНН {inn}" if inn else pledge_holder_clean
 
                     return {
@@ -841,55 +815,81 @@ def log_result(name: str, result):
         success = len(result) > 0
     print(f"{name}: {'✅' if success else '❌'}")
 
+
 def parsing_all_docx(docx_path: str) -> dict:
     doc = Document(docx_path)
     company_data = {}
 
-    basic_info = extract_basic_info(doc)
-    log_result("Краткое наименование", basic_info.get("Краткое наименование"))
-    company_data.update(basic_info)
+    print("\nПАРСИНГ .docx ФАЙЛА:")
 
-    employees = extract_staff_info(doc)
-    log_result("Сведения о сотрудниках", employees)
-    company_data['Сведения о сотрудниках'] = employees
+    # 1. Собираем все данные с логированием
+    basic_info = extract_basic_info(doc)
+    log_result("Общая информация", basic_info)
 
     founders = extract_founders(doc)
-    log_result("Учредители/участники", founders.get("Актуальные участники") or founders.get("Неактуальные участники"))
-    company_data['Учредители/участники'] = founders
+    employees = extract_staff_info(doc)
+    log_result("Сведения о сотрудниках", employees)
 
-    collaterals = extract_collaterals(doc)
-    log_result("Сведения о залогах", collaterals)
-    company_data['Сведения о залогах'] = collaterals
-
-    leasing = extract_leasing_info(doc)
-    log_result("Сведения о лизинге", leasing)
-    company_data['Сведения о лизинге'] = leasing
-
-    credit_debt = extract_credit_debt(doc)
-    log_result("Кредиторская задолженность", credit_debt)
-    company_data['Кредиторская задолженность'] = credit_debt
-
-    financials = extract_financial_results(doc)
-    log_result("Отчет о финансовых результатах", financials)
-    company_data['Отчет о финансовых результатах'] = financials
-
-    assets = extract_assets_and_receivables(doc)
-    log_result("Основные средства и дебиторка", assets)
-    company_data['Основные средства и дебиторка'] = assets
-
-    manager = extract_competitive_manager(doc)
-    log_result("Конкурсный управляющий", manager)
-    company_data['Конкурсный управляющий'] = manager
+    share_pledge_info = extract_share_pledge_info(doc)
+    log_result("Залог долей", share_pledge_info)
 
     connections = extract_related_companies_from_path(docx_path)
     log_result("Ближайшие связи", connections)
-    company_data['Ближайшие связи'] = connections
 
-    share_pledge_info = extract_share_pledge_info(doc)
-    log_result("О залоге долей", share_pledge_info)
-    company_data["О залоге долей"] = share_pledge_info
+    assets = extract_assets_and_receivables(doc)
+    log_result("Основные средства и дебиторка", assets)
 
-    return company_data
+    collaterals = extract_collaterals(doc)
+    log_result("Сведения о залогах", collaterals)
+
+    leasing = extract_leasing_info(doc)
+    log_result("Сведения о лизинге", leasing)
+
+    credit_debt = extract_credit_debt(doc)
+    log_result("Кредиторская задолженность", credit_debt)
+
+    financials = extract_financial_results(doc)
+    log_result("Финансовые результаты", financials)
+
+    log_result("Учредители/участники", founders)
+
+    # 2. Формируем раздел "Общая информация" с добавлением конкурсного управляющего
+    manager = extract_competitive_manager(doc)
+    general_info = {
+        "Общая информация": {
+            "Наименование": basic_info.get("Наименование", ""),
+            "ОГРН": basic_info.get("ОГРН", ""),
+            "ИНН/КПП": f"{basic_info.get('ИНН', '')} / {basic_info.get('КПП', '')}",
+            "Юридический адрес": basic_info.get("Юридический адрес", ""),
+            "Дата создания": basic_info.get("Дата создания", ""),
+            "Учредители/участники (текущие)": format_founders(founders.get("Актуальные участники", [])),
+            "Размер уставного капитала": basic_info.get("Уставный капитал", ""),
+            "Генеральный директор": f"{basic_info.get('Генеральный директор', {}).get('ФИО', '')}, ИНН {basic_info.get('Генеральный директор', {}).get('ИНН', '')}".strip(
+                ", "),
+            "Конкурсный управляющий": f"{manager.get('ФИО', '')}, ИНН {manager.get('ИНН', '')}".strip(", "),
+            "ОКВЭД (основной)": basic_info.get("ОКВЭД (основной)", "")
+        }
+    }
+
+    # 3. Формируем результат в нужном порядке
+    result = {
+        'Общая информация': general_info["Общая информация"],
+        'Сведения о сотрудниках': employees,
+        'Залог долей': share_pledge_info,
+        'Ближайшие связи': connections,
+        'Основные средства и дебиторка': assets,
+        'Сведения о залогах': collaterals,
+        'Сведения о лизинге': leasing,
+        'Кредиторская задолженность': credit_debt,
+        'Финансовые результаты': financials,
+        'Учредители/участники': founders
+    }
+
+    # 4. Выводим результат в требуемом формате
+    print("\nРЕЗУЛЬТАТ ПАРСИНГА .docx ФАЙЛА:")
+    pprint(result)
+
+    return result
 
 
 if __name__ == "__main__":
