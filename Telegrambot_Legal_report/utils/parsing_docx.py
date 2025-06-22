@@ -655,6 +655,7 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
+    """Ближайшие связи"""
     full_text = docx2txt.process(filepath)
 
     if not full_text or "Ближайшие связи – Актуальные" not in full_text:

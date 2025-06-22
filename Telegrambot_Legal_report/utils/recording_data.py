@@ -29,7 +29,6 @@ def safe_str(val):
 
 def fill_table1(table, data: dict):
     """Заполнение таблицы 1 - Основные сведения о компании"""
-    print("Заносим ОСНОВНЫЕ СВЕДЕНИЯ")
     # Формируем текст для актуальных участников
     actual_founders = data.get('Учредители/участники', {}).get('Актуальные участники', [])
     founders_text = ""
@@ -64,12 +63,9 @@ def fill_table1(table, data: dict):
     table.cell(8, 1).text = data.get("ОКВЭД(основной)", "")
     table.cell(9, 1).text = data.get("Система налогообложения", "")
 
-    print("ОСНОВНЫЕ СВЕДЕНИЯ занесены")
-
 
 def fill_table2(table, data: dict):
     """Заполнение таблицы 2 - Сведения о сотрудниках"""
-    print("Заносим Сведения о сотрудниках")
     def extract_value(dictionary_str):
         try:
             parsed = ast.literal_eval(dictionary_str)
@@ -107,12 +103,10 @@ def fill_table2(table, data: dict):
     # Устанавливаем подписи строк явно
     table.cell(1, 0).text = "Среднесписочная численность"
     table.cell(2, 0).text = "Средняя заработная плата"
-    print("Сведения о сотрудниках занесены")
 
 
 def fill_table4(table, data: dict):
     """Заполнение таблицы 4 — Сведения о залоге долей, или удаление таблицы"""
-    print("Заносим Сведения о залоге долей.")
     value = data.get("О залоге долей")
 
     if isinstance(value, str) and "нет" in value.lower():
@@ -134,12 +128,10 @@ def fill_table4(table, data: dict):
     table.cell(1, 0).text = value.get("Залогодатель", "")
     table.cell(1, 1).text = value.get("Дата залога", "")
     table.cell(1, 2).text = value.get("Залогодержатель", "")
-    print("Сведения о залоге долей занесены")
 
 
 def fill_table5(table, data: dict):
     """Заполнение таблицы 5 - Аффилированность и ближайшие связи"""
-    print("Заносим Аффилированность и ближайшие связи")
     # Удаляем все строки после заголовка (оставляем только строку с заголовками)
     while len(table.rows) > 1:
         table._tbl.remove(table.rows[1]._tr)
@@ -172,13 +164,10 @@ def fill_table5(table, data: dict):
 
         # 5. Взаимосвязь — пусто или логика
         row_cells[4].text = ""
-        print("Аффилированность и ближайшие связи занесены")
 
 
 def fill_table6(table, data: dict):
     """Заполнение таблицы 6 — Сведения о размере основных средств и дебиторской задолженности"""
-    print("Заносим Основные средства и дебиторку")
-
     values = data.get("Основные средства и дебиторка", {})
     fixed_assets = values.get("Основные средства", {})
     receivables = values.get("Дебиторская задолженность", {})
@@ -214,7 +203,6 @@ def fill_table6(table, data: dict):
             col = year_map.get(year)
             if col:
                 table.cell(2, col).text = f"{int(val):,}".replace(",", " ") + " руб."
-    print("основные средства и дебеторка занесены")
 
 def fill_table8(table, data: dict):
     """Заполнение таблицы 8 — Сведения о залогах (Залогодержатель, дата, срок, имущество)"""
@@ -235,7 +223,6 @@ def fill_table8(table, data: dict):
 
 def fill_table9(table, data: dict):
     """Заполнение таблицы 9 — Сведения о лизинге с подстановкой если лизингодатель отсутствует"""
-    print("Заносим Сведения о лизинге")
     leasers = data.get("Сведения о лизинге", [])
 
     if not isinstance(leasers, list):
@@ -261,12 +248,36 @@ def fill_table9(table, data: dict):
         row_cells[2].text = lease.get("Период лизинга", "")
         row_cells[3].text = lease.get("Категория", "")
         row_cells[4].text = lease.get("Текущий статус", "")
-        print("Сведения о лизинге занесены")
+
+
+def fill_table10(table, data):
+    """
+    Заполняет таблицу 'Сведения о размере кредиторской задолженности по бух. балансу'.
+    """
+    if not isinstance(data, dict):
+        raise ValueError("Ожидается словарь для 'Кредиторская задолженность'")
+
+    year_data = {}
+    for key in ['year_1', 'year_2', 'year_3']:
+        year_data.update(data.get(key, {}))
+
+    if not year_data:
+        raise ValueError("Нет данных для заполнения кредиторской задолженности")
+
+    # Сортируем года по возрастанию
+    sorted_years = sorted(year_data.keys())
+
+    # Обработка максимум 3 лет (если больше — игнорируем)
+    for col_idx, year in enumerate(sorted_years[:3], start=1):
+        if col_idx >= len(table.columns):
+            break  # на случай неожиданной структуры
+        table.cell(0, col_idx).text = str(year)
+        value = year_data[year]
+        table.cell(1, col_idx).text = f"{int(value):,} т.р.".replace(",", " ")
 
 
 def fill_table13(table, data: dict):
     """Заполнение таблицы 13 — Отчет о финансовых результатах (без 'конец')"""
-    print("Заносим Отчет о финансовых результатах")
     fin_data = data.get("Отчет о финансовых результатах", {})
 
     all_years = set()
@@ -307,21 +318,98 @@ def fill_table13(table, data: dict):
                 value = year_values.get(year)
                 if value is not None:
                     table.cell(row_idx, col_idx + 1).text = str(value)
-                    print("Отчет о финансовых результатах занесены")
 
 
 def save_filled_doc(template_path: str, output_path: str, data: dict):
-    """Основная функция для заполнения шаблона документа"""
+    """Основная функция для заполнения шаблона документа с отчетом об успешности вставки"""
     document = Document(template_path)
+    status = {}
 
-    # Заполняем таблицы через отдельные функции
-    fill_table1(document.tables[0], data)  # Таблица 1 Основные сведения о компании
-    fill_table2(document.tables[1], data)  # Таблица 2 Сведения о сотрудниках
-    fill_table4(document.tables[3], data)
-    fill_table5(document.tables[4], data)  # Таблица 5 Аффилированность и Ближайшие связи
-    fill_table6(document.tables[5], data)  # Таблица 6 Основных средств и дебиторской задолженности
-    fill_table8(document.tables[7], data)  # Таблица 8 Сведения о залогах
-    fill_table9(document.tables[8], data)  # Таблица 9 Сведения о лизинге
-    fill_table13(document.tables[12], data)  # Таблица 13 Отчет о финансовых результатах
+    try:
+        fill_table1(document.tables[0], data)
+        status["Краткое наименование"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 1:", e)
+        status["Краткое наименование"] = False
+
+    try:
+        fill_table2(document.tables[1], data)
+        status["Сведения о сотрудниках"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 2:", e)
+        status["Сведения о сотрудниках"] = False
+
+    try:
+        fill_table4(document.tables[3], data)
+        status["О залоге долей"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 4:", e)
+        status["О залоге долей"] = False
+
+    try:
+        fill_table5(document.tables[4], data)
+        status["Ближайшие связи"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 5:", e)
+        status["Ближайшие связи"] = False
+
+    try:
+        fill_table6(document.tables[5], data)
+        status["Основные средства и дебиторка"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 6:", e)
+        status["Основные средства и дебиторка"] = False
+
+    try:
+        fill_table8(document.tables[7], data)
+        status["Сведения о залогах"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 8:", e)
+        status["Сведения о залогах"] = False
+
+    try:
+        fill_table9(document.tables[8], data)
+        status["Сведения о лизинге"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 9:", e)
+        status["Сведения о лизинге"] = False
+
+    try:
+        fill_table10(document.tables[10], data.get("Кредиторская задолженность", {}))
+        status["Кредиторская задолженность"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 10:", e)
+        status["Кредиторская задолженность"] = False
+
+    try:
+        fill_table13(document.tables[12], data)
+        status["Отчет о финансовых результатах"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 13:", e)
+        status["Отчет о финансовых результатах"] = False
+
+    # Конкурсный управляющий (если есть)
+    if data.get("Конкурсный управляющий", {}).get("ФИО") or data.get("Конкурсный управляющий", {}).get("ИНН"):
+        status["Конкурсный управляющий"] = True
+    else:
+        status["Конкурсный управляющий"] = False
 
     document.save(output_path)
+
+    # Вывод отчета
+    print("\nДОБАВЛЕНИЕ В ШАБЛОН:")
+    for section in [
+        "Краткое наименование",
+        "Сведения о сотрудниках",
+        "Учредители/участники",
+        "Сведения о залогах",
+        "Сведения о лизинге",
+        "Кредиторская задолженность",
+        "Отчет о финансовых результатах",
+        "Основные средства и дебиторка",
+        "Конкурсный управляющий",
+        "Ближайшие связи",
+        "О залоге долей",
+    ]:
+        mark = "✅" if status.get(section, False) else "❌"
+        print(f"{section}: {mark}")
