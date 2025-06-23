@@ -21,15 +21,15 @@ def extract_structured_data(word_path, pdf_path, excel_path):
         inn = inn_kpp.split("/")[0].strip() if "/" in inn_kpp else inn_kpp.strip()
         if inn:
             company_inn = inn
-    print("============================================================")
-    print(company_inn)
     data_excel = parsing_excel_file(excel_path, company_inn) if excel_path else {}
     print("Данные из .xlsx файла собраны")
 
-    combined = {}
+    data_pdf = parsing_all_pdf(pdf_path) if pdf_path else {}
+    print("Данные из .pdf файла собраны")
 
     # Объединяем все данные
-    for data in (data_docx, data_excel):  # , data_pdf
+    combined = {}
+    for data in (data_docx, data_pdf, data_excel):
         for key, val in data.items():
             if key in combined and isinstance(val, dict) and isinstance(combined[key], dict):
                 combined[key].update(val)

@@ -377,8 +377,53 @@ def fill_table13(table, data):
                 print(f"❌ Ошибка при вставке '{indicator}' за {year}: {e}")
                 skipped += 1
 
-    # print(f"✅ Заполнено ячеек: {filled}")
-    # print(f"❌ Пропущено ячеек: {skipped}")
+
+def fill_table14(table, data: dict):
+    """
+    Заполняет таблицу 'Финансовый анализ на последнюю отчетную дату'.
+    """
+    analysis = data.get("Финансовый анализ", {})
+    if not isinstance(analysis, dict):
+        print("⚠️ Неверный формат данных для Финансового анализа.")
+        return
+
+    # Определяем доступные годы
+    years = set()
+    for value in analysis.values():
+        if isinstance(value, dict):
+            for k in value:
+                if k.startswith("Значение показателя на "):
+                    years.add(k)
+
+    if len(years) != 2:
+        print(f"❌ Ожидается ровно 2 года, найдено: {sorted(years)}")
+        return
+
+    sorted_years = sorted(years)  # Гарантируем порядок
+    year_col_map = {year: i + 1 for i, year in enumerate(sorted_years)}  # колонки 1 и 2
+
+    for row in table.rows[1:]:
+        indicator = row.cells[0].text.strip()
+        if not indicator:
+            continue
+
+        data_row = analysis.get(indicator)
+        if not isinstance(data_row, dict):
+            continue
+
+        # Вставляем значения по годам
+        for year, col_idx in year_col_map.items():
+            value = data_row.get(year)
+            if value is not None:
+                try:
+                    row.cells[col_idx].text = str(value)
+                except Exception as e:
+                    print(f"❌ Ошибка при вставке значения {indicator} за {year}: {e}")
+
+        # Вставляем описание (если есть)
+        desc = data_row.get("Описание показателя")
+        if desc:
+            row.cells[3].text = desc
 
 
 def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
@@ -463,6 +508,13 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         print("Ошибка при заполнении таблицы 13 (Финансовые результаты):", e)
         status["Финансовые результаты"] = False
 
+    try:
+        fill_table14(document.tables[13], data)
+        status["Финансовый анализ"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 14 (Финансовый анализ):", e)
+        status["Финансовый анализ"] = False
+
     # Сохранение по пути output_path (переопределим имя на основе данных)
     filename = generate_filename(data)
     final_path = os.path.join("Reports", filename)
@@ -482,6 +534,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         "Кредиторская задолженность",
         "Просуженная задолженность",
         "Финансовые результаты",
+        "Финансовый анализ",
     ]:
         mark = "✅" if status.get(section, False) else "❌"
         print(f"{section}: {mark}")
