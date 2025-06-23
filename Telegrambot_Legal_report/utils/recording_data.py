@@ -258,6 +258,7 @@ def fill_table10(table, data):
     if not isinstance(data, dict):
         raise ValueError("Ожидается словарь для 'Кредиторская задолженность'")
 
+    # Собираем данные по годам
     year_data = {}
     for key in ['year_1', 'year_2', 'year_3']:
         year_data.update(data.get(key, {}))
@@ -265,16 +266,20 @@ def fill_table10(table, data):
     if not year_data:
         raise ValueError("Нет данных для заполнения кредиторской задолженности")
 
-    # Сортируем года по возрастанию
-    sorted_years = sorted(year_data.keys())
+    sorted_years = sorted(year_data.keys())[:3]
 
-    # Обработка максимум 3 лет (если больше — игнорируем)
-    for col_idx, year in enumerate(sorted_years[:3], start=1):
-        if col_idx >= len(table.columns):
-            break  # на случай неожиданной структуры
-        table.cell(0, col_idx).text = str(year)
-        value = year_data[year]
-        table.cell(1, col_idx).text = f"{int(value):,} т.р.".replace(",", " ")
+    if len(table.rows) < 2 or len(table.columns) < 4:
+        raise ValueError("Ожидается таблица минимум 2 строки и 4 столбца")
+
+    for col_idx, year in enumerate(sorted_years, start=1):
+        try:
+            table.cell(0, col_idx).text = str(year)
+            value = year_data[year]
+            value_int = int(str(value).replace(" ", "").replace(",", ""))
+            table.cell(1, col_idx).text = f"{value_int:,} т.р.".replace(",", " ")
+        except Exception as e:
+            print(f"Ошибка при вставке значения для {year}: {e}")
+            raise
 
 
 def fill_table13(table, data: dict):
@@ -376,14 +381,14 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         status["Сведения о лизинге"] = False
 
     try:
-        fill_table10(document.tables[10], data)
+        fill_table10(document.tables[10], data["Кредиторская задолженность"])
         status["Кредиторская задолженность"] = True
     except Exception as e:
         print("Ошибка при заполнении таблицы 10 (Кредиторская задолженность):", e)
         status["Кредиторская задолженность"] = False
 
     try:
-        fill_table13(document.tables[12], data)
+        fill_table13(document.tables[12], data["Финансовые результаты"])
         status["Финансовые результаты"] = True
     except Exception as e:
         print("Ошибка при заполнении таблицы 13 (Финансовые результаты):", e)
