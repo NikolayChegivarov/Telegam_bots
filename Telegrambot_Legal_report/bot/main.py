@@ -48,5 +48,5 @@ app.add_handler(MessageHandler(filters.Text("Основной интерфейс
 # Обработка неизвестных сообщений
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown))
 
-print("✅ Бот успешно запущен.")
+print("✅ Бот успешно запущен.\n")
 app.run_polling()

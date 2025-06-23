@@ -34,7 +34,7 @@ def print_separator():
 async def start_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     print(f"Пользователь {user_id} формирует отчет:")
-    print("Начинаем сбор данных")
+    print("Начинаем сбор данных\n")
 
     db = DatabaseInteraction()
 
@@ -133,7 +133,7 @@ async def receive_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
         combined_data['org_name'] = combined_data.get('Краткое наименование', 'Без названия')
         pretty_print_data(combined_data)
 
-        print("Заносим информацию в шаблон")
+        print(" ")
         output_path = os.path.join(REPORTS_DIR, generate_filename(combined_data))
         print(f"output_path === {output_path}")
         print("Заносим информацию в шаблон")

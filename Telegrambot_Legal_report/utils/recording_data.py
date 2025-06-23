@@ -128,7 +128,6 @@ def fill_table4(table, data: dict):
         return
 
     if not isinstance(value, dict):
-        print("⚠️ Ожидался словарь или строка в поле 'О залоге долей'")
         return
 
     table.cell(1, 0).text = value.get("Залогодатель", "")
@@ -257,6 +256,27 @@ def fill_table9(table, data: dict):
 
 
 def fill_table10(table, data):
+    """
+     Заполняет таблицу 'Сведения о просуживаемой задолженности'.
+     """
+    items = data.get("Просуживаемая", [])
+    if not isinstance(items, list):
+        print("⚠️ Ожидается список в поле 'Просуживаемая'")
+        return
+
+    # Удаляем все строки, кроме заголовка
+    while len(table.rows) > 1:
+        table._tbl.remove(table.rows[1]._tr)
+
+    for item in items:
+        row = table.add_row().cells
+        row[0].text = item.get("№ Дела", "")
+        row[1].text = item.get("Ответчик", "")
+        row[2].text = item.get("Исковые требования", "")
+        row[3].text = item.get("Статус", "")
+
+
+def fill_table11(table, data):
     """
     Заполняет таблицу 'Сведения о размере кредиторской задолженности по бух. балансу'.
     """
@@ -395,7 +415,14 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         status["Сведения о лизинге"] = False
 
     try:
-        fill_table10(document.tables[10], data["Кредиторская задолженность"])
+        fill_table10(document.tables[9], data)
+        status["Просуживаемая задолженность"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 9 (Просуживаемая задолженность):", e)
+        status["Просуживаемая задолженность"] = False
+
+    try:
+        fill_table11(document.tables[10], data["Кредиторская задолженность"])
         status["Кредиторская задолженность"] = True
     except Exception as e:
         print("Ошибка при заполнении таблицы 10 (Кредиторская задолженность):", e)
@@ -424,6 +451,7 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         "Сведения о залогах",
         "Сведения о лизинге",
         "Кредиторская задолженность",
+        "Просуживаемая задолженность",
         "Финансовые результаты",
     ]:
         mark = "✅" if status.get(section, False) else "❌"
