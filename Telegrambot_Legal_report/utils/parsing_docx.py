@@ -10,6 +10,7 @@ import docx2txt
 from docx.table import Table
 import os
 from docx.table import _Cell
+from typing import Dict
 
 
 def extract_inn_ogrn(text):
@@ -516,72 +517,53 @@ def extract_credit_debt(doc):
     return {'year_1': '', 'year_2': '', 'year_3': ''}
 
 
-def extract_financial_results(doc):
-    """Извлекает данные о выручке, чистой прибыли и убытке из таблиц."""
-    revenue_data = {}
+def extract_financial_results(doc: Document) -> dict:
+    """Извлекает финансовые показатели из таблицы 'Форма №2. Отчет о финансовых результатах'."""
+    code_to_key = {
+        '2110': 'Выручка',
+        '2120': 'Себестоимость продаж',
+        '2100': 'Валовая прибыль (убыток)',
+        '2210': 'Коммерческие расходы',
+        '2220': 'Управленческие расходы',
+        '2200': 'Прибыль (убыток) от продаж',
+        '2330': 'Проценты к уплате',
+        '2340': 'Прочие доходы',
+        '2350': 'Прочие расходы',
+        '2300': 'Прибыль (убыток) до налогообложения',
+        '2410': 'Налог на прибыль',
+        '2411': 'Текущий налог на прибыль',
+        '2400': 'Чистая прибыль (убыток)',
+        '2500': 'Совокупный финансовый результат периода'
+    }
+
+    results = {v: {} for v in code_to_key.values()}
 
     for table in doc.tables:
-        if not table.rows or len(table.rows[0].cells) < 2:
+        if len(table.columns) < 6 or len(table.rows) < 2:
             continue
 
-        headers = []
-        for cell in table.rows[0].cells:
-            if cell.paragraphs and len(cell.paragraphs) > 0:
-                headers.append(extract_text_without_strikethrough(cell.paragraphs[0]).strip().lower())
-            else:
-                headers.append('')
-
-        if len(headers) < 2:
-            continue
-
-        has_revenue_row = False
-        for row in table.rows:
-            if len(row.cells) > 0 and row.cells[0].paragraphs:
-                text = extract_text_without_strikethrough(row.cells[0].paragraphs[0]).strip().lower()
-                if "выручка" in text:
-                    has_revenue_row = True
-                    break
-
-        if not has_revenue_row:
+        header_texts = [cell.text.lower() for cell in table.rows[0].cells]
+        if not any('код' in txt for txt in header_texts) or not any('202' in txt for txt in header_texts):
             continue
 
         for row in table.rows:
-            if not row.cells or len(row.cells) < 2:
+            if len(row.cells) < 6:
                 continue
-
-            cell_0 = row.cells[0]
-            if not (cell_0.paragraphs and len(cell_0.paragraphs) > 0):
+            code = row.cells[1].text.strip()
+            if code not in code_to_key:
                 continue
+            indicator_name = code_to_key[code]
+            for i, year_cell in enumerate(row.cells[2:]):
+                year_idx = 2021 + i  # предполагаем фиксированный порядок: 2021, 2022, 2023, 2024
+                text = extract_text_from_cell(year_cell)
+                clean = text.replace(' ', '').replace('–', '0')
+                results[indicator_name][str(year_idx)] = clean
 
-            text = extract_text_without_strikethrough(cell_0.paragraphs[0]).strip().lower()
-            if not any(key in text for key in ['выручка', 'чистая прибыль', 'убыток']):
-                continue
+        # если все нужные коды собраны — выходим
+        if all(results[key] for key in code_to_key.values()):
+            break
 
-            for idx, header in enumerate(headers):
-                if idx >= len(row.cells):
-                    continue
-
-                year_match = re.search(r'(20\d{2})', header)
-                if not year_match:
-                    continue
-
-                year = year_match.group(1)
-                cell = row.cells[idx]
-                if not (cell.paragraphs and len(cell.paragraphs) > 0):
-                    continue
-
-                value = extract_text_without_strikethrough(cell.paragraphs[0]).strip().replace(' ', '').replace('–',
-                                                                                                                '0')
-                revenue_data.setdefault(year, {})[text] = value
-
-    years_sorted = sorted(revenue_data.keys(), reverse=True)
-    slots = ['year_1', 'year_2', 'year_3']
-    result = {}
-
-    for i, year in enumerate(years_sorted[:3]):
-        result[slots[i]] = {year: revenue_data[year]}
-
-    return result if result else {'year_1': '', 'year_2': '', 'year_3': ''}
+    return results
 
 
 def extract_assets_and_receivables(doc):
