@@ -284,64 +284,56 @@ def fill_table10(table, data):
 
 def fill_table13(table, data):
     """
-    Заполнение таблицы 13: "Финансовые результаты".
+    Заполняет таблицу 'Отчет о финансовых результатах' (таблица 13).
+    Ожидает ровно 4 года и соответствующие показатели.
     """
-    import re
-
     if not isinstance(data, dict):
-        print("❌ Ошибка: Ожидался словарь для финансовых результатов")
-        return False
+        print("❌ Неверный формат данных для финансовых результатов")
+        return
 
-    # Получаем все уникальные годы из значений показателей
+    # Получаем список годов (например, ['2021', '2022', '2023', '2024'])
     all_years = set()
     for values in data.values():
         if isinstance(values, dict):
             all_years.update(values.keys())
 
     if len(all_years) != 4:
-        print(f"❌ Ошибка: ожидалось 4 года, получено: {sorted(all_years)}")
-        return False
+        print(f"❌ Ожидается ровно 4 года, получено: {sorted(all_years)}")
+        return
 
-    sorted_years = sorted(all_years)
+    years = sorted(all_years)  # сортируем по возрастанию
+    col_by_year = {year: col_idx + 1 for col_idx, year in enumerate(years)}  # колонка сдвигается на 1 вправо
 
-    # Вставка годов в заголовок
-    for col_idx, year in enumerate(sorted_years, start=1):
-        try:
-            table.cell(0, col_idx).text = f"конец {year}"
-        except IndexError:
-            print(f"❌ Ошибка при вставке заголовка года {year}: IndexError")
-            return False
+    # Заполняем заголовки столбцов (строка 0)
+    for year, col_idx in col_by_year.items():
+        table.cell(0, col_idx).text = f"конец {year}"
 
-    # Проход по строкам, в каждой строке в первом столбце — название показателя
     filled, skipped = 0, 0
-    for row_idx, row in enumerate(table.rows[1:], start=1):
-        row_name = row.cells[0].text.strip()
-        row_name_normalized = re.sub(r'[\s\n]+', ' ', row_name).lower()
 
-        # Находим соответствующий ключ из словаря data
-        matched_key = next((k for k in data if k.lower() in row_name_normalized), None)
-        if not matched_key:
-            skipped += 4
+    # Проходим по строкам таблицы (начиная со второй строки — индексы показателей)
+    for row in table.rows[1:]:
+        indicator = row.cells[0].text.strip()
+        if not indicator:
             continue
 
-        values_by_year = data[matched_key]
+        if indicator not in data:
+            continue
 
-        for col_idx, year in enumerate(sorted_years, start=1):
+        year_values = data[indicator]
+        for year, value in year_values.items():
+            col_idx = col_by_year.get(year)
+            if col_idx is None:
+                skipped += 1
+                continue
             try:
-                value = values_by_year.get(year, "")
-                if value:
-                    table.cell(row_idx, col_idx).text = f"{int(value):,}".replace(",", " ")
-                    filled += 1
-                else:
-                    skipped += 1
-            except IndexError:
-                print(f"❌ Ошибка при вставке '{matched_key}' за {year}: list index out of range")
+                row.cells[col_idx].text = f"{int(value):,}".replace(",", " ")
+                filled += 1
+            except Exception as e:
+                print(f"❌ Ошибка при вставке '{indicator}' за {year}: {e}")
                 skipped += 1
 
     print(f"✅ Заполнено ячеек: {filled}")
-    if skipped:
-        print(f"❌ Пропущено ячеек: {skipped}")
-    return True
+    print(f"❌ Пропущено ячеек: {skipped}")
 
 
 def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
