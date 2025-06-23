@@ -3,6 +3,11 @@ from docx import Document
 # from datetime import datetime
 import re
 import ast
+from docx.shared import Inches
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+from docx.shared import Inches
+
 
 def generate_filename(data: dict) -> str:
     from datetime import datetime
@@ -284,8 +289,7 @@ def fill_table10(table, data):
 
 def fill_table13(table, data):
     """
-    Заполняет таблицу 'Отчет о финансовых результатах' (таблица 13).
-    Ожидает ровно 4 года и соответствующие показатели.
+    Заполняет таблицу 'Отчет о финансовых результатах'.
     """
     if not isinstance(data, dict):
         print("❌ Неверный формат данных для финансовых результатов")
@@ -332,8 +336,8 @@ def fill_table13(table, data):
                 print(f"❌ Ошибка при вставке '{indicator}' за {year}: {e}")
                 skipped += 1
 
-    print(f"✅ Заполнено ячеек: {filled}")
-    print(f"❌ Пропущено ячеек: {skipped}")
+    # print(f"✅ Заполнено ячеек: {filled}")
+    # print(f"❌ Пропущено ячеек: {skipped}")
 
 
 def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
