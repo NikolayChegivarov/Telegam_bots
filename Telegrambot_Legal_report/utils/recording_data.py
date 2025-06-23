@@ -307,6 +307,27 @@ def fill_table11(table, data):
             raise
 
 
+def fill_table12(table, data: dict):
+    """
+    Заполняет таблицу 'Сведения о просуженной кредиторской задолженности'.
+    """
+    items = data.get("Просуженная", [])
+    if not isinstance(items, list):
+        print("⚠️ Ожидается список в поле 'Просуженная'")
+        return
+
+    # Удаляем все строки кроме заголовка
+    while len(table.rows) > 1:
+        table._tbl.remove(table.rows[1]._tr)
+
+    for item in items:
+        row = table.add_row().cells
+        row[0].text = item.get("№ Дела", "")
+        row[1].text = item.get("Ответчик", "")
+        row[2].text = item.get("Исковые требования", "")
+        row[3].text = item.get("Статус", "")
+
+
 def fill_table13(table, data):
     """
     Заполняет таблицу 'Отчет о финансовых результатах'.
@@ -429,6 +450,13 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         status["Кредиторская задолженность"] = False
 
     try:
+        fill_table12(document.tables[11], data)
+        status["Просуженная задолженность"] = True
+    except Exception as e:
+        print("Ошибка при заполнении таблицы 11 (Просуженная задолженность):", e)
+        status["Просуженная задолженность"] = False
+
+    try:
         fill_table13(document.tables[12], data["Финансовые результаты"])
         status["Финансовые результаты"] = True
     except Exception as e:
@@ -450,8 +478,9 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         "Основные средства и дебиторка",
         "Сведения о залогах",
         "Сведения о лизинге",
-        "Кредиторская задолженность",
         "Просуживаемая задолженность",
+        "Кредиторская задолженность",
+        "Просуженная задолженность",
         "Финансовые результаты",
     ]:
         mark = "✅" if status.get(section, False) else "❌"
