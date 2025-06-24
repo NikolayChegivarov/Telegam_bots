@@ -27,8 +27,8 @@ def pretty_print_data(data: dict):
     print("\n")
 
 
-def print_separator():
-    print("=" * 60)
+# def print_separator():
+#     print("=" * 60)
 
 
 async def start_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -119,24 +119,29 @@ async def receive_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     telegram_file = await document.get_file()
     await telegram_file.download_to_drive(excel_path)
     user_files[user_id]['excel'] = excel_path
-
     print(f"Получили от пользователя {user_id} документ .xlsx")
+
     print("Собрали все три файла.")
 
     try:
+        # Создаю единый словарь.
         combined_data = extract_structured_data(
             user_files[user_id]['word'],
             user_files[user_id]['pdf'],
             user_files[user_id]['excel']
         )
+        org_info = combined_data.get('Общая информация', {})
+        org_name = org_info.get('Наименование')
+        combined_data['org_name'] = org_name if org_name else 'Без названия'
+        print(f"Наименование организации: '{combined_data['org_name']}'")
+        pretty_print_data(f"СОБРАННАЯ ИНФОРМАЦИЯ:\n{combined_data}")
 
-        combined_data['org_name'] = combined_data.get('Краткое наименование', 'Без названия')
-        pretty_print_data(combined_data)
-
-        print(" ")
+        # Формирую имя файла ООО_Ромашка_2025-06-24.docx.
         output_path = os.path.join(REPORTS_DIR, generate_filename(combined_data))
-        print(f"output_path === {output_path}")
+        print(f"Cформировано имя файла: {output_path}")
+
         print("Заносим информацию в шаблон")
+        # Аргументы: (путь к шаблону, имя файла, общая информация)
         save_filled_doc(TEMPLATE_PATH, output_path, combined_data)
         print(f"Сохранили новый файл {os.path.basename(output_path)} в папку Reports")
 

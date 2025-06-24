@@ -1,17 +1,20 @@
+# Занесение в шаблон
 import os
 from docx import Document
-# from datetime import datetime
-import re
+# # from datetime import datetime
+# import re
 import ast
-from docx.shared import Inches
-from docx.oxml import OxmlElement
-from docx.oxml.ns import qn
-from docx.shared import Inches
-
+# from docx.shared import Inches
+# from docx.oxml import OxmlElement
+# from docx.oxml.ns import qn
+# from docx.shared import Inches
+from datetime import datetime
 
 def generate_filename(data: dict) -> str:
-    from datetime import datetime
-
+    """
+    Генерирует имя файла на основе наименования организации и текущего времени.
+    Формат: <Наименование>_<ГГГГ-ММ-ДД_ЧЧММСС>.docx
+    """
     info = data.get("Общая информация", {})
     name = info.get("Наименование") or "Без названия"
     name = name.replace('"', '').replace("«", "").replace("»", "").strip()
