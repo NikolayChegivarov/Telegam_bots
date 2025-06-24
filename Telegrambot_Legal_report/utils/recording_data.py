@@ -1,14 +1,9 @@
 # Занесение в шаблон
 import os
 from docx import Document
-# # from datetime import datetime
-# import re
 import ast
-# from docx.shared import Inches
-# from docx.oxml import OxmlElement
-# from docx.oxml.ns import qn
-# from docx.shared import Inches
 from datetime import datetime
+
 
 def generate_filename(data: dict) -> str:
     """

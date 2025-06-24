@@ -139,7 +139,6 @@ async def receive_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # Формирую имя файла ООО_Ромашка_2025-06-24.docx.
         output_path = os.path.join(REPORTS_DIR, generate_filename(combined_data))
         print(f"Cформировано имя файла: {output_path}")
-
         print("Заносим информацию в шаблон")
         # Аргументы: (путь к шаблону, имя файла, общая информация)
         save_filled_doc(TEMPLATE_PATH, output_path, combined_data)
