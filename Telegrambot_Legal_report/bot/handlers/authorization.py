@@ -79,6 +79,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # 👤 Пользователь нажал кнопку "Авторизоваться"
 async def handle_authorize(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """ """
     db = DatabaseInteraction()
     user = update.effective_user
     user_id = user.id

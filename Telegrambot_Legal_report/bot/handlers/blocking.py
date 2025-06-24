@@ -5,6 +5,7 @@ from database.database_interaction import DatabaseInteraction
 from keyboards import get_block_keyboard
 
 async def handle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Предоставляет выбор активных пользователей для блокировки. """
     db = DatabaseInteraction()
     admin_id = update.effective_user.id
 
@@ -25,6 +26,7 @@ async def handle_block_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_block_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Блокирует выбранного пользователя. """
     query = update.callback_query
     await query.answer()
     admin_id = query.from_user.id

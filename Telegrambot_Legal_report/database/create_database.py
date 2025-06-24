@@ -80,7 +80,7 @@ class DatabaseManager:
                     first_name VARCHAR(50) NOT NULL,
                     last_name VARCHAR(50) NOT NULL,
                     status VARCHAR(20) NOT NULL
-                        DEFAULT 'Заблокированный'
+                        DEFAULT 'В ожидании'
                         CHECK (status IN ('Активный', 'Заблокированный', 'В ожидании')),
                     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )

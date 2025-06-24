@@ -8,6 +8,7 @@ from database.history_manager import read_history
 
 
 async def handle_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Вызывает панель администратора."""
     db = DatabaseInteraction()
     user_id = update.effective_user.id
 

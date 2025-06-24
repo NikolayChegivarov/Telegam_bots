@@ -4,8 +4,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 def get_admin_keyboard():
     """Основная клавиатура администратора."""
     keyboard = [
-        [KeyboardButton("Создать отчет"), KeyboardButton("Администрация")],
-        [KeyboardButton("История запросов"), KeyboardButton("Извлечь отчет")]
+        [KeyboardButton("Создать отчет"), KeyboardButton("Отчеты")],
+        [KeyboardButton("Администрация")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -13,9 +13,19 @@ def get_user_keyboard():
     """Основная клавиатура сотрудника."""
     keyboard = [
         [KeyboardButton("Создать отчет")],
-        [KeyboardButton("История запросов"), KeyboardButton("Извлечь отчет")]
+        [KeyboardButton("Отчеты")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+def informes():
+    """Клавиатура для получения отчетов."""
+    keyboard = [
+        [KeyboardButton("История запросов")],
+        [KeyboardButton("Извлечь отчет")],
+        [KeyboardButton("Файл истории")],
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
 
 def get_blocked_keyboard():
     """Запрос авторизации."""
