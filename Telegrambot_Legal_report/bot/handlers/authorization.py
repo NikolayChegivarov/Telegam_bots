@@ -76,10 +76,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
 
 
-
 # 👤 Пользователь нажал кнопку "Авторизоваться"
 async def handle_authorize(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """ """
+    """
+    Обрабатывает нажатие пользователем кнопки 'Авторизоваться'.
+
+    - Проверяет, зарегистрирован ли пользователь в базе данных.
+    - Если пользователь новый, добавляет его в базу с дефолтным статусом "в ожидании".
+    - Если пользователь уже подал заявку, уведомляет, что запрос рассматривается.
+    """
     db = DatabaseInteraction()
     user = update.effective_user
     user_id = user.id
@@ -97,10 +102,12 @@ async def handle_authorize(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.close()
 
 
-# ✅ Обработка кнопки авторизации в панели администратора
+# ✅ "Добавить сотрудника"
 async def handle_auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """После проверки прав,
+    изменяет статус сотрудника на 'Активный'"""
     query = update.callback_query
-    await query.answer()
+    await query.answer() # подтверждает нажатие
     admin_id = query.from_user.id
 
     try:
@@ -116,22 +123,6 @@ async def handle_auth_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             db.close()
     except Exception as e:
         print(f"Ошибка в handle_auth_callback: {e}")
-
-
-# 🛠 Открытие панели администратора
-async def handle_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    db = DatabaseInteraction()
-    user_id = update.effective_user.id
-
-    try:
-        if db.is_admin(user_id):
-            await update.message.reply_text("Панель администратора", reply_markup=administrative_keyboard())
-        else:
-            await update.message.reply_text("У вас нет прав доступа")
-    except Exception as e:
-        print(f"Ошибка в handle_admin_panel: {e}")
-    finally:
-        db.close()
 
 
 # 👥 Авторизация сотрудников (выбор из списка)
@@ -152,24 +143,5 @@ async def add_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("У вас нет прав для этого действия.")
     except Exception as e:
         print(f"Ошибка в add_employee: {e}")
-    finally:
-        db.close()
-
-
-# 🔙 Возврат в главный интерфейс администратора
-async def handle_main_interface(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    db = DatabaseInteraction()
-    user_id = update.effective_user.id
-
-    try:
-        if db.is_admin(user_id):
-            await update.message.reply_text(
-                "Вы вернулись в основной интерфейс администратора.",
-                reply_markup=get_admin_keyboard()
-            )
-        else:
-            await update.message.reply_text("У вас нет прав доступа.")
-    except Exception as e:
-        print(f"Ошибка в handle_main_interface: {e}")
     finally:
         db.close()

@@ -11,10 +11,11 @@ import os
 from dotenv import load_dotenv
 
 from bot.handlers.authorization import start, handle_authorize, handle_auth_callback
-from bot.handlers.blocking import handle_block_user, handle_block_callback
-from bot.handlers.history import handle_admin_panel, add_employee, handle_main_interface, handle_history
+from bot.handlers.blocking_user import handle_block_user, handle_block_callback
+from bot.handlers.admin_panel import handle_admin_panel, add_employee, handle_main_interface
 from bot.handlers.fallback import handle_unknown
-from bot.handlers.report import get_report_conversation_handler  # Новый ConversationHandler
+from bot.handlers.create_report import get_report_conversation_handler  # Новый ConversationHandler
+from bot.handlers.view_reports import reports_panel, handle_history, handle_history_period
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN_BOT")
@@ -35,15 +36,16 @@ app.add_handler(MessageHandler(filters.Text("Администрация"), handl
 app.add_handler(MessageHandler(filters.Text("Добавить сотрудника"), add_employee))
 app.add_handler(MessageHandler(filters.Text("Заблокировать сотрудника"), handle_block_user))
 app.add_handler(CallbackQueryHandler(handle_block_callback, pattern='^block_'))
+app.add_handler(MessageHandler(filters.Text("Основной интерфейс"), handle_main_interface))
 
 # Работа с отчетами — ConversationHandler для создания отчета
 app.add_handler(get_report_conversation_handler())
 
-# История
-app.add_handler(MessageHandler(filters.Text("История запросов"), handle_history))
+# Отчеты
+app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^Отчеты$"), reports_panel))
 
-# Кнопка вернуться
-app.add_handler(MessageHandler(filters.Text("Основной интерфейс"), handle_main_interface))
+app.add_handler(MessageHandler(filters.Text("История запросов"), handle_history))
+app.add_handler(MessageHandler(filters.Text(["1 месяц", "2 месяца", "3 месяца"]), handle_history_period))
 
 # Обработка неизвестных сообщений
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown))

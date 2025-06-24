@@ -17,12 +17,11 @@ def get_user_keyboard():
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-def informes():
+def reports():
     """Клавиатура для получения отчетов."""
     keyboard = [
-        [KeyboardButton("История запросов")],
-        [KeyboardButton("Извлечь отчет")],
-        [KeyboardButton("Файл истории")],
+        [KeyboardButton("История запросов"), KeyboardButton("Извлечь отчет")],
+        [KeyboardButton("Файл истории"), KeyboardButton("Основной интерфейс")],
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
@@ -66,3 +65,10 @@ def get_block_keyboard(users):
         )
         keyboard.append([button])
     return InlineKeyboardMarkup(keyboard)
+
+def get_history_period_keyboard():
+    """Клавиатура для выбора количества месяцев истории отчетов."""
+    keyboard = [
+        [KeyboardButton("1 месяц"), KeyboardButton("2 месяца"), KeyboardButton("3 месяца")]
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)

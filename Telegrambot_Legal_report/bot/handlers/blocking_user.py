@@ -1,4 +1,5 @@
-# bot/handlers/blocking.py
+# bot/handlers/blocking_user.py
+#
 from telegram import Update
 from telegram.ext import ContextTypes
 from database.database_interaction import DatabaseInteraction

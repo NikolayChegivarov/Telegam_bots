@@ -37,7 +37,7 @@ def read_history(period_index: int) -> list[tuple[str, str, str]]:
     period_index — цифра от 1 до 12 (1 = 30 дней, 2 = 60 дней, и т.д.)
     Возвращает список кортежей: (org_name, file_path, created_at)
     """
-    assert 1 <= period_index <= 12, "Период должен быть от 1 до 12"
+    assert 1 <= period_index <= 3, "Период должен быть от 1 до 3"
     days = period_index * 30
     since = datetime.now() - timedelta(days=days)
     query = """
