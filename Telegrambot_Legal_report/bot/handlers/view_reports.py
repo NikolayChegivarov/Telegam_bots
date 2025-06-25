@@ -74,7 +74,7 @@ async def handle_history_period(update: Update, context: ContextTypes.DEFAULT_TY
 
         # Удаляем клавиатуру выбора месяцев
         await update.message.reply_text(
-            "⏳ Скрываю временные кнопки периода...",
+            text=".",
             reply_markup=ReplyKeyboardRemove()
         )
 
