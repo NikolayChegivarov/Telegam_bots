@@ -71,4 +71,4 @@ def get_history_period_keyboard():
     keyboard = [
         [KeyboardButton("1 месяц"), KeyboardButton("2 месяца"), KeyboardButton("3 месяца")]
     ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)

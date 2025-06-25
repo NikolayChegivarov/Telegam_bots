@@ -31,17 +31,15 @@ class DatabaseInteraction:
         self.cursor.execute(query, (user_id,))
         return bool(self.cursor.fetchone())
 
-    def check_user_status(self, user_id):
-        """
-        Возвращает статус пользователя из базы данных.
-
-        :param user_id: ID пользователя в Telegram
-        :return: Строка со статусом пользователя или None, если пользователь не найден
-        """
-        query = "SELECT status FROM users WHERE id_user_telegram = %s"
-        self.cursor.execute(query, (user_id,))
+    def get_user_status(self, user_id: int) -> str:
+        self.cursor.execute("SELECT status FROM users WHERE telegram_id = ?", (user_id,))
         result = self.cursor.fetchone()
-        return result[0] if result else None
+        return result[0] if result else 'Неизвестен'
+
+    def get_user_status(self, user_id: int) -> str:
+        self.cursor.execute("SELECT status FROM users WHERE id_user_telegram = %s", (user_id,))
+        result = self.cursor.fetchone()
+        return result[0] if result else 'Неизвестен'
 
     def is_admin(self, user_id):
         """

@@ -43,23 +43,21 @@ async def add_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_main_interface(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Выдает основную клавиатуру после проверки на активность и права администратора."""
+    """Выдает основную клавиатуру после проверки на активность и на права администратора."""
     db = DatabaseInteraction()
     user_id = update.effective_user.id
 
-    try:
-        status = db.get_user_status(user_id)
-        if status != 'Активный':
-            await update.message.reply_text("Извините, у вас нет доступа к интерфейсу. Обратитесь к администратору.")
-            return
+    # поддержка как text, так и callback
+    message = update.message or (update.callback_query and update.callback_query.message)
 
+    try:
         if db.is_admin(user_id):
-            await update.message.reply_text(
+            await message.reply_text(
                 "Вы вернулись в основной интерфейс администратора.",
                 reply_markup=get_admin_keyboard()
             )
         else:
-            await update.message.reply_text(
+            await message.reply_text(
                 "Вы вернулись в основной интерфейс сотрудника.",
                 reply_markup=get_user_keyboard()
             )
@@ -67,3 +65,4 @@ async def handle_main_interface(update: Update, context: ContextTypes.DEFAULT_TY
         print(f"Ошибка в handle_main_interface: {e}")
     finally:
         db.close()
+
