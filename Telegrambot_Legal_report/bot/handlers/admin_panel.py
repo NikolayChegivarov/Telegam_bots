@@ -8,7 +8,7 @@ from keyboards import get_admin_keyboard, get_user_keyboard, administrative_keyb
 
 # 🛠 "Администрация"
 async def handle_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Вызывает панель администратора."""
+    """Вызывает панель администрирования."""
     db = DatabaseInteraction()
     user_id = update.effective_user.id
 

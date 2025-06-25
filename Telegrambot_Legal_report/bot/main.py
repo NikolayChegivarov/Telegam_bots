@@ -15,7 +15,7 @@ from bot.handlers.blocking_user import handle_block_user, handle_block_callback
 from bot.handlers.admin_panel import handle_admin_panel, add_employee, handle_main_interface
 from bot.handlers.fallback import handle_unknown
 from bot.handlers.create_report import get_report_conversation_handler  # Новый ConversationHandler
-from bot.handlers.view_reports import reports_panel, handle_history, handle_history_period
+from bot.handlers.view_reports import reports_panel, handle_history, handle_history_period, handle_report_file_callback
 
 load_dotenv()
 TOKEN = os.getenv("TELEGRAM_TOKEN_BOT")
@@ -46,6 +46,7 @@ app.add_handler(MessageHandler(filters.TEXT & filters.Regex("^Отчеты$"), r
 
 app.add_handler(MessageHandler(filters.Text("История запросов"), handle_history))
 app.add_handler(MessageHandler(filters.Text(["1 месяц", "2 месяца", "3 месяца"]), handle_history_period))
+app.add_handler(CallbackQueryHandler(handle_report_file_callback, pattern="^GET_REPORT_"))
 
 # Обработка неизвестных сообщений
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown))
