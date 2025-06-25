@@ -130,17 +130,20 @@ async def receive_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             user_files[user_id]['pdf'],
             user_files[user_id]['excel']
         )
+        # Получаем наименование компании ООО_Ромашка_2025-06-24.docx.
         org_info = combined_data.get('Общая информация', {})
         org_name = org_info.get('Наименование')
         combined_data['org_name'] = org_name if org_name else 'Без названия'
-        print(f"Наименование организации: '{combined_data['org_name']}'")
-        pretty_print_data(f"СОБРАННАЯ ИНФОРМАЦИЯ:\n{combined_data}")
+        org_name_data = generate_filename(combined_data)
+        print(f"Наименование организации: '{org_name_data}'")
+        # pretty_print_data(f"СОБРАННАЯ ИНФОРМАЦИЯ:\n{combined_data}")
 
-        # Формирую имя файла ООО_Ромашка_2025-06-24.docx.
-        output_path = os.path.join(REPORTS_DIR, generate_filename(combined_data))
-        print(f"Cформировано имя файла: {output_path}")
+        # Склеиваем путь к файлу и название компании.
+        output_path = os.path.join(REPORTS_DIR, org_name_data)
+
         print("Заносим информацию в шаблон")
-        # Аргументы: (путь к шаблону, имя файла, общая информация)
+
+        # Создаем новый файл и сохраняем его в папку (путь к шаблону, имя файла, общая информация)
         save_filled_doc(TEMPLATE_PATH, output_path, combined_data)
         print(f"Сохранили новый файл {os.path.basename(output_path)} в папку Reports")
 
@@ -154,7 +157,8 @@ async def receive_excel_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         await update.message.reply_text("✅ Отчет успешно сформирован и отправлен вам.")
 
-        write_to_history(combined_data['org_name'], output_path)
+        # Сохраняем в бд (название и путь к файлу)
+        write_to_history(org_name_data, output_path)
         print(f"Отправили файл {os.path.basename(output_path)} пользователю {user_id}")
         print("Сохранили название и дату для истории")
 
