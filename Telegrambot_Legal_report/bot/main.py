@@ -48,6 +48,7 @@ app.add_handler(MessageHandler(filters.Text("История запросов"), 
 app.add_handler(MessageHandler(filters.Text(["1 месяц", "2 месяца", "3 месяца"]), handle_history_period))
 # Выводит отчет.
 app.add_handler(CallbackQueryHandler(handle_report_file_callback, pattern="^GET_REPORT_"))
+# Возвращает основной интерфейс после инлайн кнопок
 app.add_handler(CallbackQueryHandler(handle_main_interface_callback, pattern="^TO_MAIN_INTERFACE$"))
 # Обработка неизвестных сообщений
 app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unknown))
