@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from database.database_interaction import DatabaseInteraction
 from keyboards import get_admin_keyboard, get_user_keyboard, administrative_keyboard, get_auth_keyboard
+from keyboards import get_pending_users_keyboard  # добавь импорт
 
 
 # 🛠 "Администрация"
@@ -24,20 +25,24 @@ async def handle_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def add_employee(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Предоставляет пользователей для блокировки."""
+    """Показывает список пользователей 'В ожидании' в виде кнопок."""
     db = DatabaseInteraction()
     admin_id = update.effective_user.id
 
     try:
-        if db.is_admin(admin_id):
-            blocked_users = db.get_blocked_users()
-            if blocked_users:
-                keyboard = get_auth_keyboard(blocked_users)
-                await update.message.reply_text("Выберите пользователя для авторизации:", reply_markup=keyboard)
-            else:
-                await update.message.reply_text("Нет пользователей, ожидающих авторизации.")
-        else:
+        if not db.is_admin(admin_id):
             await update.message.reply_text("У вас нет прав для этого действия.")
+            return
+
+        pending_users = db.get_in_anticipation_users()
+
+        if not pending_users:
+            await update.message.reply_text("Нет пользователей со статусом 'В ожидании'.")
+            return
+
+        reply_markup = get_pending_users_keyboard(pending_users)
+        await update.message.reply_text("Выберите пользователя для активации:", reply_markup=reply_markup)
+
     finally:
         db.close()
 

@@ -1,7 +1,6 @@
 import psycopg2
 from dotenv import load_dotenv
 import os
-
 load_dotenv()
 
 
@@ -32,6 +31,7 @@ class DatabaseInteraction:
         return bool(self.cursor.fetchone())
 
     def get_user_status(self, user_id: int) -> str:
+        """Выдает статус пользователя."""
         self.cursor.execute("SELECT status FROM users WHERE id_user_telegram = %s", (user_id,))
         result = self.cursor.fetchone()
         return result[0] if result else 'Неизвестен'
@@ -113,6 +113,20 @@ class DatabaseInteraction:
         SELECT id_user_telegram, first_name, last_name 
         FROM users 
         WHERE status = 'Активный'
+        """
+        self.cursor.execute(query)
+        return self.cursor.fetchall()
+
+    def get_in_anticipation_users(self):
+        """
+        Возвращает список всех пользователей 'В ожидании'.
+
+        :return: Список кортежей с данными пользователей (id, имя, фамилия)
+        """
+        query = """
+        SELECT id_user_telegram, first_name, last_name 
+        FROM users 
+        WHERE status = 'В ожидании'
         """
         self.cursor.execute(query)
         return self.cursor.fetchall()

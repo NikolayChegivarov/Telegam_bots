@@ -1,13 +1,15 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ReplyKeyboardRemove, \
-    ReplyKeyboardMarkup
-from telegram.ext import ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ReplyKeyboardRemove, ReplyKeyboardMarkup
+from telegram.ext import ContextTypes, ConversationHandler
 import os
 import traceback
 
 from bot.handlers.admin_panel import handle_main_interface
 from database.history_manager import read_history
-# from database.database_interaction import DatabaseInteraction
+from database.database_interaction import DatabaseInteraction
 from keyboards import reports
+REPORTS_DIR = os.path.join(os.getcwd(), "Reports")
+
+ASK_ORG_NAME = range(1)
 
 
 async def reports_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -72,9 +74,9 @@ async def handle_history_period(update: Update, context: ContextTypes.DEFAULT_TY
             reply_markup=reply_markup
         )
 
-        # Удаляем клавиатуру выбора месяцев
+        # Удаляем клавиатуру выбора месяцев (без вывода сообщения)
         await update.message.reply_text(
-            text=".",
+            text=".",  # невидимый символ
             reply_markup=ReplyKeyboardRemove()
         )
 
@@ -112,9 +114,50 @@ async def handle_report_file_callback(update: Update, context: ContextTypes.DEFA
 
 
 async def handle_main_interface_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка нажатия инлайн-кнопки возврата в основной интерфейс."""
+    query = update.callback_query
+    await query.answer()
+    await handle_main_interface(update, context)
+
+
+async def handle_extract_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Введите название организации или часть названия:")
+    return ASK_ORG_NAME
+
+
+async def handle_org_name_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.message.text.strip().lower()
+    matching_files = []
+
+    for file in os.listdir(REPORTS_DIR):
+        if file.lower().endswith(".docx") and query in file.lower():
+            matching_files.append(file)
+
+    if not matching_files:
+        await update.message.reply_text("По вашему запросу ничего не найдено.")
+        return ConversationHandler.END
+
+    keyboard = [
+        [InlineKeyboardButton(text=filename, callback_data=f"SEND_REPORT_{filename}")]
+        for filename in matching_files
+    ]
+
+    await update.message.reply_text(
+        "Выберите нужный отчет:",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+    return ConversationHandler.END
+
+
+async def handle_send_report_by_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    # Вызываем уже готовую функцию — она сама всё сделает
-    await handle_main_interface(update, context)
+    filename = query.data.replace("SEND_REPORT_", "")
+    filepath = os.path.join(REPORTS_DIR, filename)
+
+    if not os.path.exists(filepath):
+        await query.edit_message_text("Файл не найден.")
+        return
+
+    with open(filepath, "rb") as f:
+        await context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f))

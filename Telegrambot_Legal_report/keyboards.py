@@ -72,3 +72,19 @@ def get_history_period_keyboard():
         [KeyboardButton("1 месяц"), KeyboardButton("2 месяца"), KeyboardButton("3 месяца")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+def get_pending_users_keyboard(users):
+    """
+    Создает инлайн-клавиатуру для пользователей со статусом 'В ожидании'.
+
+    :param users: список кортежей (id, first_name, last_name)
+    :return: InlineKeyboardMarkup
+    """
+    keyboard = [
+        [InlineKeyboardButton(
+            text=f"{first_name} {last_name}".strip(),
+            callback_data=f"approve_{user_id}"
+        )]
+        for user_id, first_name, last_name in users
+    ]
+    return InlineKeyboardMarkup(keyboard)
