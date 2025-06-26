@@ -3,6 +3,7 @@ import os
 from docx import Document
 import ast
 from datetime import datetime
+from docx.enum.table import WD_TABLE_ALIGNMENT
 
 
 def generate_filename(data: dict) -> str:
@@ -107,6 +108,59 @@ def fill_table2(table, data: dict):
     # Устанавливаем подписи строк явно
     table.cell(1, 0).text = "Среднесписочная численность"
     table.cell(2, 0).text = "Средняя заработная плата"
+
+
+# def fill_table3_ownership_history(document, data: dict):
+#     """
+#     Создает таблицу "Хронология владения долями в уставном капитале"
+#     с выделением неактуальных участников (зачёркнутым текстом).
+#     """
+#
+#     def fill_row(tbl, item, strike=False):
+#         row_cells = tbl.add_row().cells
+#         row_cells[0].text = item.get("Наимен. и реквизиты", "")
+#         row_cells[1].text = item.get("Доля в %", "")
+#         row_cells[2].text = item.get("Доля в руб", "")
+#         row_cells[3].text = item.get("Дата", "")
+#         if strike:
+#             for cell in row_cells:
+#                 for paragraph in cell.paragraphs:
+#                     for run in paragraph.runs:
+#                         run.font.strike = True
+#
+#     # ищем заголовок, чтобы вставить таблицу после него
+#     insert_index = None
+#     for i, paragraph in enumerate(document.paragraphs):
+#         if "Хронология владения долями в уставном капитале" in paragraph.text:
+#             insert_index = i + 1
+#             break
+#
+#     if insert_index is None:
+#         print("❌ Не найден раздел 'Хронология владения долями'")
+#         return False
+#
+#     # создаем таблицу
+#     table = document.add_table(rows=1, cols=4)
+#     table.style = "Table Grid"
+#     table.alignment = WD_TABLE_ALIGNMENT.LEFT
+#
+#     hdr = table.rows[0].cells
+#     hdr[0].text = "Наименование и реквизиты"
+#     hdr[1].text = "Доля в %"
+#     hdr[2].text = "Доля в рублях"
+#     hdr[3].text = "Дата"
+#
+#     for founder in data.get("Актуальные участники", []):
+#         fill_row(table, founder, strike=False)
+#
+#     for founder in data.get("Неактуальные участники", []):
+#         fill_row(table, founder, strike=True)
+#
+#     # вставка таблицы в нужное место
+#     body = document._body._element
+#     body.insert(insert_index, table._tbl)
+#
+#     return True
 
 
 def fill_table4(table, data: dict):
@@ -442,6 +496,13 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
     except Exception as e:
         print("Ошибка при заполнении таблицы 2 (Сведения о сотрудниках):", e)
         status["Сведения о сотрудниках"] = False
+
+    # try:
+    #     fill_table3_ownership_history(document, data.get("Учредители/участники", {}))
+    #     status["Хронология долей"] = True
+    # except Exception as e:
+    #     print("Ошибка при вставке таблицы 'Хронология долей':", e)
+    #     status["Хронология долей"] = False
 
     try:
         fill_table4(document.tables[3], data)
