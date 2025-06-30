@@ -73,8 +73,10 @@ def fill_table1(table, data: dict):
     table.cell(9, 1).text = info.get("Система налогообложения", "")
 
 
+from docx.shared import RGBColor
+
 def fill_table2(table, data: dict):
-    """Заполнение таблицы 2 - Сведения о сотрудниках"""
+    """Заполнение таблицы 2 - Сведения о сотрудниках с белыми надписями"""
     def extract_value(dictionary_str):
         try:
             parsed = ast.literal_eval(dictionary_str)
@@ -90,11 +92,8 @@ def fill_table2(table, data: dict):
     headcount = employee_info.get("Среднесписочная численность", {})
     salary = employee_info.get("Средняя заработная плата", {})
 
-    # Подготовим год и значения в правильном порядке
-    columns = ['year_3', 'year_2', 'year_1']  # year_3 — старый год (2021), справа — новые (2023)
-    years = []
-    headcount_values = []
-    salary_values = []
+    columns = ['year_3', 'year_2', 'year_1']
+    years, headcount_values, salary_values = [], [], []
 
     for year_key in columns:
         y, v1 = extract_value(headcount.get(year_key, ''))
@@ -103,15 +102,25 @@ def fill_table2(table, data: dict):
         headcount_values.append(v1)
         salary_values.append(v2)
 
-    # Заполняем таблицу
+    # Заголовки лет — белым
     for i, year in enumerate(years):
-        table.cell(0, i + 1).text = year  # заголовки: 2021 2022 2023
-        table.cell(1, i + 1).text = headcount_values[i]
-        table.cell(2, i + 1).text = salary_values[i]
+        cell = table.cell(0, i + 1)
+        cell.text = ""
+        run = cell.paragraphs[0].add_run(year)
+        run.font.color.rgb = RGBColor(255, 255, 255)
 
-    # Устанавливаем подписи строк явно
-    table.cell(1, 0).text = "Среднесписочная численность"
-    table.cell(2, 0).text = "Средняя заработная плата"
+    # Значения численности и зарплат — обычные
+    for i, val in enumerate(headcount_values):
+        table.cell(1, i + 1).text = val
+    for i, val in enumerate(salary_values):
+        table.cell(2, i + 1).text = val
+
+    # Подписи строк слева — белым
+    for row_idx, label in [(1, "Среднесписочная численность"), (2, "Средняя заработная плата")]:
+        cell = table.cell(row_idx, 0)
+        cell.text = ""
+        run = cell.paragraphs[0].add_run(label)
+        run.font.color.rgb = RGBColor(255, 255, 255)
 
 
 # def extract_dates_and_names(data: dict):
