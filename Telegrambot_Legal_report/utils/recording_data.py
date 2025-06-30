@@ -1,5 +1,6 @@
 # Занесение в шаблон
 import os
+import re
 from docx import Document
 import ast
 from datetime import datetime
@@ -13,6 +14,7 @@ def generate_filename(data: dict) -> str:
     """
     info = data.get("Общая информация", {})
     name = info.get("Наименование") or "Без названия"
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '', name)
     name = name.replace('"', '').replace("«", "").replace("»", "").strip()
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     return f"{name}_{timestamp}.docx"
