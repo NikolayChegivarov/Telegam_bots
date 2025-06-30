@@ -27,10 +27,6 @@ def pretty_print_data(data: dict):
     print("\n")
 
 
-# def print_separator():
-#     print("=" * 60)
-
-
 async def start_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     print(f"Пользователь {user_id} формирует отчет:")
