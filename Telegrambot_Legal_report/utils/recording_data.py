@@ -286,11 +286,14 @@ def fill_table6(table, data: dict):
         if year:
             years.append(year)
 
-    # Заполняем заголовки
+    # Заполняем заголовки годов — белым цветом
     for col_idx, year in enumerate(years):
         if col_idx + 1 < len(table.columns):
-            table.cell(0, col_idx + 1).text = year
-            year_map[year] = col_idx + 1  # столбец, начиная с 1 (т.к. 0 — метка строки)
+            cell = table.cell(0, col_idx + 1)
+            cell.text = ""
+            run = cell.paragraphs[0].add_run(year)
+            run.font.color.rgb = RGBColor(255, 255, 255)
+            year_map[year] = col_idx + 1
 
     # Заполнение строки "Размер основных средств"
     for key, year_data in fixed_assets.items():
@@ -375,12 +378,12 @@ def fill_table10(table, data):
 
 def fill_table11(table, data):
     """
-    Заполняет таблицу 'Сведения о размере кредиторской задолженности по бух. балансу'.
+    Заполняет таблицу 'Сведения о размере кредиторской задолженности по бух. балансу'
+    с белыми заголовками годов.
     """
     if not isinstance(data, dict):
         raise ValueError("Ожидается словарь для 'Кредиторская задолженность'")
 
-    # Собираем данные по годам
     year_data = {}
     for key in ['year_1', 'year_2', 'year_3']:
         year_data.update(data.get(key, {}))
@@ -395,7 +398,13 @@ def fill_table11(table, data):
 
     for col_idx, year in enumerate(sorted_years, start=1):
         try:
-            table.cell(0, col_idx).text = str(year)
+            # Белый заголовок года
+            cell = table.cell(0, col_idx)
+            cell.text = ""
+            run = cell.paragraphs[0].add_run(str(year))
+            run.font.color.rgb = RGBColor(255, 255, 255)
+
+            # Значение
             value = year_data[year]
             value_int = int(str(value).replace(" ", "").replace(",", ""))
             table.cell(1, col_idx).text = f"{value_int:,} т.р.".replace(",", " ")
@@ -425,15 +434,16 @@ def fill_table12(table, data: dict):
         row[3].text = item.get("Статус", "")
 
 
+
 def fill_table13(table, data):
     """
-    Заполняет таблицу 'Отчет о финансовых результатах'.
+    Заполняет таблицу 'Отчет о финансовых результатах' с белыми заголовками годов.
     """
     if not isinstance(data, dict):
         print("❌ Неверный формат данных для финансовых результатов")
         return
 
-    # Получаем список годов (например, ['2021', '2022', '2023', '2024'])
+    # Собираем все года
     all_years = set()
     for values in data.values():
         if isinstance(values, dict):
@@ -443,22 +453,22 @@ def fill_table13(table, data):
         print(f"❌ Ожидается ровно 4 года, получено: {sorted(all_years)}")
         return
 
-    years = sorted(all_years)  # сортируем по возрастанию
-    col_by_year = {year: col_idx + 1 for col_idx, year in enumerate(years)}  # колонка сдвигается на 1 вправо
+    years = sorted(all_years)
+    col_by_year = {year: col_idx + 1 for col_idx, year in enumerate(years)}
 
-    # Заполняем заголовки столбцов (строка 0)
+    # Белые заголовки годов в первой строке
     for year, col_idx in col_by_year.items():
-        table.cell(0, col_idx).text = f"конец {year}"
+        cell = table.cell(0, col_idx)
+        cell.text = ""
+        run = cell.paragraphs[0].add_run(f"конец {year}")
+        run.font.color.rgb = RGBColor(255, 255, 255)
 
     filled, skipped = 0, 0
 
-    # Проходим по строкам таблицы (начиная со второй строки — индексы показателей)
+    # Заполнение значений
     for row in table.rows[1:]:
         indicator = row.cells[0].text.strip()
-        if not indicator:
-            continue
-
-        if indicator not in data:
+        if not indicator or indicator not in data:
             continue
 
         year_values = data[indicator]
