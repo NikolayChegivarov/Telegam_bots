@@ -487,48 +487,51 @@ def fill_table13(table, data):
 
 def fill_table14(table, data: dict):
     """
-    Заполняет таблицу 'Финансовый анализ на последнюю отчетную дату'.
+    Заполняет таблицу 'Финансовый анализ на последнюю отчетную дату' с белыми заголовками годов.
     """
     analysis = data.get("Финансовый анализ", {})
     if not isinstance(analysis, dict):
         print("⚠️ Неверный формат данных для Финансового анализа.")
         return
 
-    # Определяем доступные годы
+    # Извлекаем года
     years = set()
-    for value in analysis.values():
-        if isinstance(value, dict):
-            for k in value:
-                if k.startswith("Значение показателя на "):
-                    years.add(k)
+    for val in analysis.values():
+        if isinstance(val, dict):
+            years.update(k for k in val if k.startswith("Значение показателя на "))
 
     if len(years) != 2:
         print(f"❌ Ожидается ровно 2 года, найдено: {sorted(years)}")
         return
 
-    sorted_years = sorted(years)  # Гарантируем порядок
-    year_col_map = {year: i + 1 for i, year in enumerate(sorted_years)}  # колонки 1 и 2
+    sorted_years = sorted(years)
+    year_col_map = {year: i + 1 for i, year in enumerate(sorted_years)}  # колонки: 1, 2
 
+    # Заголовки годов — белым цветом
+    for year, col in year_col_map.items():
+        cell = table.cell(0, col)
+        cell.text = ""
+        run = cell.paragraphs[0].add_run(year)
+        run.font.color.rgb = RGBColor(255, 255, 255)
+
+    # Заголовок последней колонки (описание) — оставляем как есть
+
+    # Заполнение значений
     for row in table.rows[1:]:
         indicator = row.cells[0].text.strip()
         if not indicator:
             continue
 
-        data_row = analysis.get(indicator)
-        if not isinstance(data_row, dict):
+        row_data = analysis.get(indicator)
+        if not isinstance(row_data, dict):
             continue
 
-        # Вставляем значения по годам
-        for year, col_idx in year_col_map.items():
-            value = data_row.get(year)
+        for year, col in year_col_map.items():
+            value = row_data.get(year)
             if value is not None:
-                try:
-                    row.cells[col_idx].text = str(value)
-                except Exception as e:
-                    print(f"❌ Ошибка при вставке значения {indicator} за {year}: {e}")
+                row.cells[col].text = str(value)
 
-        # Вставляем описание (если есть)
-        desc = data_row.get("Описание показателя")
+        desc = row_data.get("Описание показателя")
         if desc:
             row.cells[3].text = desc
 
