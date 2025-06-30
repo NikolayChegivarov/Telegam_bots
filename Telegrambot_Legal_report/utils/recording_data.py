@@ -210,7 +210,7 @@ def fill_table2(table, data: dict):
 
 def fill_table4(table, data: dict):
     """Заполнение таблицы 4 — Сведения о залоге долей, или удаление таблицы"""
-    value = data.get("О залоге долей")
+    value = data.get("Залог долей")
 
     if isinstance(value, str) and "нет" in value.lower():
         # Удаляем таблицу, если информация отсутствует
@@ -219,7 +219,7 @@ def fill_table4(table, data: dict):
         parent_element.remove(tbl_element)
 
         # Добавляем параграф вместо таблицы
-        paragraph = table._parent.add_paragraph("Долей в залоге нет")
+        paragraph = table._parent.add_paragraph("Залог долей нет")
         run = paragraph.runs[0]
         run.italic = True
         return
