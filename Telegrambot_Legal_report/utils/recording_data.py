@@ -5,9 +5,6 @@ import ast
 from datetime import datetime
 from docx.shared import RGBColor
 
-# from docx.enum.table import WD_TABLE_ALIGNMENT
-# from docx.oxml import OxmlElement
-
 
 def generate_filename(data: dict) -> str:
     """
@@ -60,11 +57,10 @@ def fill_table1(table, data: dict):
 
     # Заполнение ячеек
     # Наименование — белым цветом
-    # cell = table.cell(0, 1)
-    # cell.text = ""
-    # run = cell.paragraphs[0].add_run(info.get("Наименование", ""))
-    # run.font.color.rgb = RGBColor(255, 255, 255)
-    table.cell(0, 1).text = info.get("Наименование", "")
+    cell = table.cell(0, 1)
+    cell.text = ""
+    run = cell.paragraphs[0].add_run(info.get("Наименование", ""))
+    run.font.color.rgb = RGBColor(255, 255, 255)
     table.cell(1, 1).text = info.get("ОГРН", "")
     table.cell(2, 1).text = f"{inn} / {kpp}"
     table.cell(3, 1).text = info.get("Юридический адрес", "")
