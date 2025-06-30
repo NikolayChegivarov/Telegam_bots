@@ -1,10 +1,11 @@
+import pandas as pd
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputFile, ReplyKeyboardRemove, ReplyKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 import os
 import traceback
 
 from bot.handlers.admin_panel import handle_main_interface
-from database.history_manager import read_history
+from database.history_manager import read_history, get_all_history
 from database.database_interaction import DatabaseInteraction
 from keyboards import reports
 REPORTS_DIR = os.path.join(os.getcwd(), "Reports")
@@ -18,6 +19,7 @@ async def reports_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Выберите действие:", reply_markup=keyboard)
 
 
+# "История запросов"
 async def handle_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Выберите период, за который вы хотите просмотреть отчеты:",
@@ -86,6 +88,7 @@ async def handle_history_period(update: Update, context: ContextTypes.DEFAULT_TY
 
 
 async def handle_report_file_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Выводит выбранный инлайн кнопкой отчет."""
     query = update.callback_query
     await query.answer()
 
@@ -114,11 +117,14 @@ async def handle_report_file_callback(update: Update, context: ContextTypes.DEFA
 
 
 async def handle_main_interface_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Подтверждает получение callback.
+    Перенаправляет вызов на основную функцию обработки главного интерфейса"""
     query = update.callback_query
     await query.answer()
     await handle_main_interface(update, context)
 
 
+# "Извлечь отчет"
 async def handle_extract_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Введите название организации или часть названия:")
     return ASK_ORG_NAME
@@ -136,28 +142,77 @@ async def handle_org_name_input(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("По вашему запросу ничего не найдено.")
         return ConversationHandler.END
 
+    context.user_data["search_files"] = matching_files
+
     keyboard = [
-        [InlineKeyboardButton(text=filename, callback_data=f"SEND_REPORT_{filename}")]
-        for filename in matching_files
+        [InlineKeyboardButton(text=filename, callback_data=f"SEND_REPORT_{idx}")]
+        for idx, filename in enumerate(matching_files)
     ]
 
+    # Добавляем кнопку "🏠 Основной интерфейс"
+    keyboard.append([
+        InlineKeyboardButton(text="🏠 Основной интерфейс", callback_data="TO_MAIN_INTERFACE")
+    ])
+
     await update.message.reply_text(
-        "Выберите нужный отчет:",
+        "Выберите нужный отчет или вернитесь в основной интерфейс:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
     return ConversationHandler.END
 
 
+# Обработка выбранного отчета по индексу
 async def handle_send_report_by_search(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    filename = query.data.replace("SEND_REPORT_", "")
-    filepath = os.path.join(REPORTS_DIR, filename)
+    try:
+        idx_str = query.data.replace("SEND_REPORT_", "")
+        idx = int(idx_str)
+        matching_files = context.user_data.get("search_files", [])
 
-    if not os.path.exists(filepath):
-        await query.edit_message_text("Файл не найден.")
-        return
+        if idx < 0 or idx >= len(matching_files):
+            await query.edit_message_text("❌ Неверный выбор отчета.")
+            return
 
-    with open(filepath, "rb") as f:
-        await context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f))
+        filename = matching_files[idx]
+        filepath = os.path.join(REPORTS_DIR, filename)
+
+        if not os.path.exists(filepath):
+            await query.edit_message_text("❌ Файл не найден.")
+            return
+
+        with open(filepath, "rb") as f:
+            await context.bot.send_document(chat_id=query.message.chat_id, document=InputFile(f))
+
+    except Exception as e:
+        traceback.print_exc()
+        await query.edit_message_text(f"❌ Ошибка при отправке отчета: {e}")
+
+# "Файл истории"
+TEMP_HISTORY_FILE = "temp/history_file.xlsx"
+
+async def handle_history_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    try:
+        await update.message.reply_text("Готовлю файл с историей...")
+
+        history_data = get_all_history()
+        if not history_data:
+            await context.bot.send_message(chat_id=chat_id, text="История пуста.")
+            return
+
+        df = pd.DataFrame(history_data)
+        df.to_excel(TEMP_HISTORY_FILE, index=False)
+
+        with open(TEMP_HISTORY_FILE, "rb") as f:
+            await context.bot.send_document(chat_id=chat_id, document=InputFile(f))
+
+    except Exception as e:
+        traceback.print_exc()
+        await update.message.reply_text(f"❌ Произошла сетевая ошибка: {e}")
+
+    finally:
+        if os.path.exists(TEMP_HISTORY_FILE):
+            os.remove(TEMP_HISTORY_FILE)

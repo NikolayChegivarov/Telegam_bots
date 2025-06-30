@@ -4,6 +4,7 @@ from docx import Document
 import ast
 from datetime import datetime
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import OxmlElement
 
 
 def generate_filename(data: dict) -> str:
@@ -110,56 +111,86 @@ def fill_table2(table, data: dict):
     table.cell(2, 0).text = "Средняя заработная плата"
 
 
-# def fill_table3_ownership_history(document, data: dict):
+# def extract_dates_and_names(data: dict):
 #     """
-#     Создает таблицу "Хронология владения долями в уставном капитале"
-#     с выделением неактуальных участников (зачёркнутым текстом).
+#     Извлекает все уникальные даты и соответствующие доли из участников.
 #     """
+#     import re
 #
-#     def fill_row(tbl, item, strike=False):
-#         row_cells = tbl.add_row().cells
-#         row_cells[0].text = item.get("Наимен. и реквизиты", "")
-#         row_cells[1].text = item.get("Доля в %", "")
-#         row_cells[2].text = item.get("Доля в руб", "")
-#         row_cells[3].text = item.get("Дата", "")
-#         if strike:
-#             for cell in row_cells:
-#                 for paragraph in cell.paragraphs:
-#                     for run in paragraph.runs:
-#                         run.font.strike = True
+#     def normalize_date(text):
+#         match = re.search(r"\d{2}\.\d{2}\.\d{4}", text)
+#         return match.group(0) if match else None
 #
-#     # ищем заголовок, чтобы вставить таблицу после него
-#     insert_index = None
-#     for i, paragraph in enumerate(document.paragraphs):
+#     date_set = set()
+#     rows = []
+#
+#     for founder in data.get("Актуальные участники", []) + data.get("Неактуальные участники", []):
+#         name = founder.get("Наимен. и реквизиты", "")
+#         share = founder.get("Доля в %", "")
+#         date = founder.get("Дата", "")
+#         date_points = []
+#
+#         if "(" in date:
+#             date_parts = [normalize_date(d) for d in date.split("(")]
+#             date_points = [d for d in date_parts if d]
+#         else:
+#             d = normalize_date(date)
+#             if d:
+#                 date_points = [d]
+#
+#         for d in date_points:
+#             date_set.add(d)
+#
+#         is_old = founder in data.get("Неактуальные участники", [])
+#         rows.append((name, share, date_points, is_old))
+#
+#     sorted_dates = sorted(date_set, key=lambda d: datetime.strptime(d, "%d.%m.%Y"))
+#     return sorted_dates, rows
+
+
+# def insert_timeline_share_table(document: Document, data: dict) -> bool:
+#     """
+#     Вставляет таблицу с временной шкалой владения долями после нужного заголовка.
+#     """
+#     sorted_dates, founder_rows = extract_dates_and_names(data)
+#
+#     # Найти нужный параграф
+#     target_paragraph = None
+#     for paragraph in document.paragraphs:
 #         if "Хронология владения долями в уставном капитале" in paragraph.text:
-#             insert_index = i + 1
+#             target_paragraph = paragraph
 #             break
-#
-#     if insert_index is None:
-#         print("❌ Не найден раздел 'Хронология владения долями'")
+#     if not target_paragraph:
+#         print("❌ Не найден заголовок 'Хронология владения долями'")
 #         return False
 #
-#     # создаем таблицу
-#     table = document.add_table(rows=1, cols=4)
+#     # Создаём таблицу
+#     table = document.add_table(rows=1, cols=1 + len(sorted_dates))
 #     table.style = "Table Grid"
 #     table.alignment = WD_TABLE_ALIGNMENT.LEFT
 #
 #     hdr = table.rows[0].cells
-#     hdr[0].text = "Наименование и реквизиты"
-#     hdr[1].text = "Доля в %"
-#     hdr[2].text = "Доля в рублях"
-#     hdr[3].text = "Дата"
+#     hdr[0].text = "Наименование"
+#     for i, date in enumerate(sorted_dates):
+#         hdr[i + 1].text = date
 #
-#     for founder in data.get("Актуальные участники", []):
-#         fill_row(table, founder, strike=False)
+#     for name, share, date_points, is_old in founder_rows:
+#         row = table.add_row().cells
+#         row[0].text = name
+#         for d in date_points:
+#             try:
+#                 col_idx = sorted_dates.index(d)
+#                 row[col_idx + 1].text = share
+#             except ValueError:
+#                 pass
+#         if is_old:
+#             for cell in row:
+#                 for p in cell.paragraphs:
+#                     for r in p.runs:
+#                         r.font.strike = True
 #
-#     for founder in data.get("Неактуальные участники", []):
-#         fill_row(table, founder, strike=True)
-#
-#     # вставка таблицы в нужное место
-#     body = document._body._element
-#     body.insert(insert_index, table._tbl)
-#
+#     # Вставляем таблицу после заголовка
+#     target_paragraph._p.addnext(table._tbl)
 #     return True
 
 
@@ -498,11 +529,11 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         status["Сведения о сотрудниках"] = False
 
     # try:
-    #     fill_table3_ownership_history(document, data.get("Учредители/участники", {}))
-    #     status["Хронология долей"] = True
+    #     insert_timeline_share_table(document, data.get("Учредители/участники", {}))
+    #     status["Хронология владения долями"] = True
     # except Exception as e:
-    #     print("Ошибка при вставке таблицы 'Хронология долей':", e)
-    #     status["Хронология долей"] = False
+    #     print("Ошибка при добавлении таблицы хронологии долей:", e)
+    #     status["Хронология владения долями"] = False
 
     try:
         fill_table4(document.tables[3], data)
@@ -594,6 +625,9 @@ def save_filled_doc(template_path: str, output_path: str, data: dict) -> str:
         "Просуженная задолженность",
         "Финансовые результаты",
         "Финансовый анализ",
+        "Общая информация",
+        "Сведения о сотрудниках",
+        "Хронология владения долями",
     ]:
         mark = "✅" if status.get(section, False) else "❌"
         print(f"{section}: {mark}")

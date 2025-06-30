@@ -76,6 +76,21 @@ def export_full_history(filename: str = "full_history_export.csv"):
             writer.writerow(row)
     return os.path.abspath(filename)
 
+def get_all_history():
+    query = """
+        SELECT DISTINCT org_name
+        FROM reports_history
+        ORDER BY org_name;
+    """
+    try:
+        conn = get_db_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            return [{"Название организации": row[0]} for row in rows if row[0]]
+    finally:
+        conn.close()
+
 # Примеры использования:
 if __name__ == "__main__":
     # Добавить запись
