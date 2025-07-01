@@ -632,96 +632,95 @@ def extract_assets_and_receivables(doc):
 
 
 def extract_related_companies_from_path(filepath):
-    full_text = docx2txt_process(filepath)
+    """Извлекает данные о ближайших связях с наименованием организации в ключе."""
+    full_text = docx2txt.process(filepath)
 
     if not full_text or "Ближайшие связи – Актуальные" not in full_text:
-        return {}
+        print("❌ Блок 'Ближайшие связи – Актуальные' не найден.")
+        return {"Ближайшие связи": {}}
 
-    # Обрезаем текст до блока
-    block = full_text.split("Ближайшие связи – Актуальные", 1)[-1]
-    stop_markers = ["Ближайшие связи –", "Ближайшие связи:", "Ближайшие связи —"]
-    for stop in stop_markers:
-        if stop in block:
-            block = block.split(stop, 1)[0]
-    lines = [line.strip() for line in block.splitlines() if line.strip()]
+    block_lines = full_text.split("Ближайшие связи – Актуальные", 1)[-1].splitlines()
+    cleaned_block_lines = []
+    for line in block_lines:
+        if "Ближайшие связи –" in line and "Актуальные" not in line:
+            break
+        cleaned_block_lines.append(line.strip())
 
-    related = {}
+    lines = [l for l in cleaned_block_lines if l]
+
+    related_companies = {}
     current = None
-    current_key = None
+    current_name = None
+    last_key_was_participant = False
 
     for i, line in enumerate(lines):
-        clean = line.lstrip("▶►•").strip()
+        clean_line = line.lstrip("▶►•").strip()
 
-        if not re.match(r"^(ООО|АО|ПАО|ИП)\s", clean):
+        if ("контур.фокус" in clean_line.lower()
+                or "по данным" in clean_line.lower()
+                or "на основании" in clean_line.lower()):
             continue
 
-        if "ИНН" in clean and re.search(r'\d{10,12}', clean):
-            continue  # вероятно участник
+        if last_key_was_participant:
+            last_key_was_participant = False
+            continue
 
-        name_line = clean
-        inn, ogrn = "", ""
+        # Наименование организации
+        if re.match(r'^(ООО|АО|ПАО|ИП|ОАО|ЗАО)\s', clean_line):
+            if "%" in clean_line or "доля" in clean_line.lower() or "руб" in clean_line.lower():
+                continue
 
-        # Ищем ИНН и ОГРН в следующих строках
-        for offset in range(1, 5):
-            if i + offset >= len(lines):
-                break
-            inn_candidate = lines[i + offset]
-            _, inn_found, ogrn_found = extract_inn_ogrn(inn_candidate)
-            if inn_found:
-                inn = inn_found
-                ogrn = ogrn_found
-                break
+            if current_name and current:
+                # Пропускаем если все поля пустые
+                if any([current["Генеральный директор"], current["Адрес"],
+                        current["Реквизиты"].get("ИНН"), current["Участники"]]):
+                    related_companies[current_name] = current
 
-        if not inn:
-            continue  # пропускаем без ИНН
+            current_name = clean_line
+            current = {
+                "Генеральный директор": "",
+                "Участники": [],
+                "Адрес": "",
+                "Реквизиты": {"ИНН": "", "ОГРН": ""}
+            }
+            continue
 
-        if inn in related:
-            continue  # уже есть
+        if not current:
+            continue
 
-        # Ищем адрес
-        address = ""
-        for offset in range(1, 5):
-            if i + offset >= len(lines):
-                break
-            candidate = lines[i + offset]
-            if re.search(r'(г\.|г |обл\.|обл |респ\.|респ )', candidate.lower()):
-                address = candidate.strip()
-                break
+        if "инн" in clean_line.lower() or "огрн" in clean_line.lower():
+            _, inn, ogrn = extract_inn_ogrn(clean_line)
+            if inn:
+                current["Реквизиты"]["ИНН"] = inn
+            if ogrn:
+                current["Реквизиты"]["ОГРН"] = ogrn
 
-        # Ищем гендиректора
-        director = ""
-        for offset in range(1, 5):
-            if i + offset >= len(lines):
-                break
-            candidate = lines[i + offset]
-            if "генеральный директор" in candidate.lower():
-                if i + offset + 1 < len(lines):
-                    fio_line = lines[i + offset + 1]
-                    cleaned, inn_dir, _ = extract_inn_ogrn(fio_line)
-                    director = f"{cleaned}, ИНН {inn_dir}" if inn_dir else cleaned
-                break
+        if "Генеральный директор" in clean_line and i + 1 < len(lines):
+            fio_line = lines[i + 1].strip()
+            cleaned, inn, _ = extract_inn_ogrn(fio_line)
+            result = f"{cleaned}, ИНН {inn}" if inn else cleaned
+            current["Генеральный директор"] = result
 
-        # Ищем участников
-        participants = []
-        for offset in range(1, 6):
-            if i + offset >= len(lines):
-                break
-            if "участник" in lines[i + offset].lower() or "учредитель" in lines[i + offset].lower():
-                if i + offset + 1 < len(lines):
-                    p_line = lines[i + offset + 1]
-                    if "100%" in p_line:
-                        p_line = p_line.split("100%")[0].strip() + "100%"
-                    participants.append(p_line.strip())
-                break
+        if ("учредитель" in clean_line.lower() or "участник" in clean_line.lower()) and i + 1 < len(lines):
+            full_text = lines[i + 1]
+            participant = full_text.split("100%")[0].strip() + "100%" if "100%" in full_text else full_text
+            participant = re.sub(r"\xa0", " ", participant)
+            current["Участники"].append(participant)
+            last_key_was_participant = True
+            continue
 
-        related[inn] = {
-            "Адрес": address,
-            "Генеральный директор": director,
-            "Участники": participants,
-            "Реквизиты": {"ИНН": inn, "ОГРН": ogrn}
-        }
+        if clean_line.lower() == "адрес" and i + 1 < len(lines):
+            current["Адрес"] = lines[i + 1].strip()
+        elif not current["Адрес"] and re.search(r'(г\\.|г |обл\\.|обл |респ\\.|респ )', clean_line.lower()):
+            current["Адрес"] = clean_line
 
-    return {"Ближайшие связи": related}
+    if current_name and current:
+        if any([current["Генеральный директор"], current["Адрес"],
+                current["Реквизиты"].get("ИНН"), current["Участники"]]):
+            related_companies[current_name] = current
+
+    return related_companies
+
 
 
 def extract_share_pledge_info(doc: Document):
