@@ -212,19 +212,21 @@ def fill_table4(table, data: dict):
     """Заполнение таблицы 4 — Сведения о залоге долей, или удаление таблицы"""
     value = data.get("Залог долей")
 
-    if isinstance(value, str) and "нет" in value.lower():
-        # Удаляем таблицу, если информация отсутствует
-        tbl_element = table._tbl
-        parent_element = tbl_element.getparent()
-        parent_element.remove(tbl_element)
+    # if isinstance(value, str) and "нет" in value.lower():
+    #     # Удаляем таблицу, если информация отсутствует
+    #     tbl_element = table._tbl
+    #     parent_element = tbl_element.getparent()
+    #     parent_element.remove(tbl_element)
+    #
+    #     # Добавляем параграф вместо таблицы
+    #     paragraph = table._parent.add_paragraph("Залог долей нет")
+    #     run = paragraph.runs[0]
+    #     run.italic = True
+    #     return
+    # if not isinstance(value, dict):
+    #     return
 
-        # Добавляем параграф вместо таблицы
-        paragraph = table._parent.add_paragraph("Залог долей нет")
-        run = paragraph.runs[0]
-        run.italic = True
-        return
-
-    if not isinstance(value, dict):
+    if not value or (isinstance(value, str) and "нет" in value.lower()):
         return
 
     table.cell(1, 0).text = value.get("Залогодатель", "")

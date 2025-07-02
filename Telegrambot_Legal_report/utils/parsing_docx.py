@@ -40,10 +40,15 @@ def extract_text_from_cell(cell):
 
 
 def extract_text_without_strikethrough(paragraph):
-    """Извлекает текст из параграфа, исключая зачеркнутые части."""
-    if not hasattr(paragraph, 'runs'):
-        return ''
-    return ''.join(run.text for run in paragraph.runs if not is_strikethrough(run))
+    """
+    Возвращает текст параграфа, исключая зачёркнутые run-элементы.
+    Если в параграфе только один run — считаем его валидным (даже если font.strike=True).
+    """
+    runs = paragraph.runs
+    if len(runs) == 1:
+        return runs[0].text.strip()
+
+    return ''.join(run.text for run in runs if not run.font.strike).strip()
 
 
 def is_strikethrough(run):
@@ -132,50 +137,62 @@ def extract_basic_info(doc):
         'КПП': '',
         'ОГРН': '',
         'Дата создания': '',
-        'Юридический адрес': [],
+        'Юридический адрес': '',
         'Уставный капитал': '',
         'Генеральный директор': {'ФИО': '', 'ИНН': ''},
         'ОКВЭД (основной)': '',
-        'Учредители/участники (текущие)': []
+        'Учредители/участники (текущие)': ''
     }
 
-    for table in doc.tables:
-        for row in table.rows:
-            if len(row.cells) < 2:
-                continue
+    if isinstance(doc, str):
+        doc = Document(doc)
 
-            key = extract_text_from_cell(row.cells[0])
+    first_table = doc.tables[0]
+
+    for row in first_table.rows:
+        if len(row.cells) < 2:
+            continue
+
+        key = extract_text_from_cell(row.cells[0]).strip()
+        if not key:
+            continue
+
+        if "Краткое наименование" in key:
+            basic_info['Наименование'] = extract_text_from_cell(row.cells[1])
+
+        elif key == "ИНН":
+            basic_info['ИНН'] = extract_text_from_cell(row.cells[1])
+
+        elif key == "КПП":
+            basic_info['КПП'] = extract_text_from_cell(row.cells[1])
+
+        elif key == "ОГРН":
+            basic_info['ОГРН'] = extract_text_from_cell(row.cells[1])
+
+        elif key == "Дата образования":
+            basic_info['Дата создания'] = extract_text_from_cell(row.cells[1])
+
+        elif key == "Юр. адрес":
+            addr_cell = row.cells[1]
+            # просто берём весь текст из ячейки, как есть, без фильтрации зачёркнутого
+            full_address = addr_cell.text.strip()
+            if full_address:
+                basic_info['Юридический адрес'] = extract_first_address_block(full_address)
+
+        elif "Уставный капитал" in key and not basic_info['Уставный капитал']:
+            basic_info['Уставный капитал'] = extract_text_from_cell(row.cells[1])
+
+        elif "Генеральный директор" in key:
             value = extract_text_from_cell(row.cells[1])
+            basic_info['Генеральный директор'] = split_director_info(value)
 
-            if not key and not value:
-                continue
+        elif "Основной вид деятельности" in key:
+            basic_info['ОКВЭД (основной)'] = extract_text_from_cell(row.cells[1])
 
-            if "Краткое наименование" in key:
-                basic_info['Наименование'] = value
-            elif key == "ИНН":
-                basic_info['ИНН'] = value
-            elif key == "КПП":
-                basic_info['КПП'] = value
-            elif key == "ОГРН":
-                basic_info['ОГРН'] = value
-            elif key == "Дата образования":
-                basic_info['Дата создания'] = value
-            elif "Юр. адрес" in key or "Юридический адрес" in key:
-                if value:
-                    basic_info['Юридический адрес'].extend(value.split('\n'))
-            elif "Уставный капитал" in key and not basic_info['Уставный капитал']:
-                basic_info['Уставный капитал'] = value
-            elif "Генеральный директор" in key:
-                basic_info['Генеральный директор'] = split_director_info(value)
-            elif "Основной вид деятельности" in key:
-                basic_info['ОКВЭД (основной)'] = value
-
-    raw_address = ', '.join(
-        addr.strip() for addr in basic_info['Юридический адрес'] if addr.strip())
-    basic_info['Юридический адрес'] = extract_first_address_block(raw_address)
+        elif "участники" in key.lower():
+            basic_info["Учредители/участники (текущие)"] = extract_text_from_cell(row.cells[1])
 
     return basic_info
-
 
 def extract_staff_info(doc):
     """Извлекает информацию о сотрудниках: численность и среднюю зарплату."""
