@@ -13,7 +13,7 @@ def connect_to_database(dbname=None):
         connection = psycopg2.connect(
             host=os.getenv("HOST"),
             database=dbname if dbname else os.getenv("NAME_DB"),
-            user=os.getenv("USER"),
+            user=os.getenv("USER_DB"),
             password=os.getenv("PASSWORD_DB"),
             port=os.getenv("PORT")
         )

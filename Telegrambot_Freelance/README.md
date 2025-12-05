@@ -34,14 +34,14 @@ pip3 install prettytable
 ```
 Создайте файл .env в корневой директории проекта и добавьте в него следующие переменные:
 
-TELEGRAM_TOKEN_BO
-HOST
-USER
-PASSWORD_DB=1171
-PORT
-NAME_DB
-ADMIN
-export PAYMENT_PROVIDER_TOKEN
+TELEGRAM_TOKEN_BO  
+HOST  
+USER_DB
+PASSWORD_DB
+PORT  
+NAME_DB  
+ADMIN  
+export PAYMENT_PROVIDER_TOKEN  
 
 Запустите бота с помощью команды:
 ```bash
