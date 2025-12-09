@@ -236,8 +236,7 @@ def callback_query(call):
         elif call.data == "to_mark":
             status = 'Сделано'
         id_task = int(call.message.text.split('№')[-1])
-        print(f"меняет статус задачи {id_task} на '{status}'.")
-
+        print(f"Администратор меняет статус задачи {id_task} на '{status}'.")
         params = (status, id_task)
         update_query = """
             UPDATE tasks
@@ -247,9 +246,9 @@ def callback_query(call):
         cursor.execute(update_query, params)
         cnx.commit()
         print(f"Статус задачи №{id_task} изменен на '{status}'.\n")
-
         bot.send_message(chat_id, f"Статус задачи №{id_task} - '{status}'")
 
+        # Извлекаем автора задачи, отправляем ему статус задачи
         query = """
             SELECT author
             FROM tasks
@@ -261,6 +260,7 @@ def callback_query(call):
             author = result[0]
             print(f"author: {author}")
             bot.send_message(author, f"Статус задачи №{id_task} - '{status}'")
+            client(bot, author)
         else:
             print("Запись не найдена")
 
