@@ -5,7 +5,16 @@
 .env.production
 .env.development
 
+bot_data.json
+bot_data.*.json  # все варианты
+
 # Файлы данных бота
 bot_data.json
 __pycache__/
 *.py[cod]
+
+# КЛЮЧИ ШИФРОВАНИЯ - ОБЯЗАТЕЛЬНО!
+secret.key
+*.key
+*.pem
+encryption.key
