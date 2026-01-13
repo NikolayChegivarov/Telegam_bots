@@ -1,0 +1,11 @@
+# .gitignore
+.env
+*.env.local
+*.env.*.local
+.env.production
+.env.development
+
+# Файлы данных бота
+bot_data.json
+__pycache__/
+*.py[cod]
