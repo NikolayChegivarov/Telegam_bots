@@ -9,7 +9,8 @@ from telegram.ext import (
     ContextTypes,
     filters
 )
-from config import BOT_TOKEN, ADMIN_IDS, MANAGER_NAME
+from telegram.constants import ParseMode
+from config import BOT_TOKEN, ADMIN_IDS, MANAGER_NAME, MANAGER_CHAT_ID
 from database import Database
 
 # Настройка логирования
@@ -70,7 +71,8 @@ def format_prices():
 
     # Добавляем информацию о менеджере
     message += "\n📞 *Для заказа можно*\n"
-    message += f"👉 [НАПИСАТЬ МЕНЕДЖЕРУ](https://t.me/{MANAGER_NAME}) 👈"
+    message += f"👉 [НАПИСАТЬ МЕНЕДЖЕРУ](https://t.me/{MANAGER_NAME}) 👈\n\n"
+    message += "Или просто напишите сообщение прямо мне, и я передам его менеджеру!"
 
     return message
 
@@ -78,6 +80,8 @@ def format_prices():
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start"""
     user_id = update.effective_user.id
+    user_name = update.effective_user.full_name or "Неизвестный пользователь"
+    username = update.effective_user.username or "без username"
 
     # Добавляем пользователя в базу
     db.add_user(user_id)
@@ -100,8 +104,158 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(
             "👋 Добро пожаловать! Я бот для отслеживания цен на драгоценные металлы.\n\n"
-            "Нажмите кнопку ниже, чтобы узнать текущие цены.",
+            "Нажмите кнопку ниже, чтобы узнать текущие цены.\n\n"
+            f"📞 Для заказа свяжитесь с менеджером: @{MANAGER_NAME}\n"
+            "Или просто напишите сообщение прямо мне, и я передам его менеджеру!",
             reply_markup=reply_markup
+        )
+
+        # Логируем нового пользователя
+        logger.info(f"Новый пользователь: {user_name} (ID: {user_id}, username: @{username})")
+
+
+# ============ ФУНКЦИИ ДЛЯ ПЕРЕНАПРАВЛЕНИЯ СООБЩЕНИЙ МЕНЕДЖЕРУ ============
+def escape_markdown(text):
+    """Экранирует специальные символы Markdown V2"""
+    if not text:
+        return ""
+    # Экранируем основные символы Markdown
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    for char in escape_chars:
+        text = text.replace(char, f'\\{char}')
+    return text
+
+
+async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Перенаправляет сообщения пользователей менеджеру"""
+    user_id = update.effective_user.id
+    user_name = update.effective_user.full_name or "Неизвестный пользователь"
+    username = update.effective_user.username or "без username"
+
+    # Пропускаем администраторов
+    if check_admin(user_id):
+        return
+
+    # Получаем текст сообщения
+    if update.message.text:
+        message_text = update.message.text
+    elif update.message.caption:
+        message_text = update.message.caption
+    else:
+        message_text = "Сообщение без текста"
+
+    # Создаем сообщение для менеджера
+    manager_message = (
+        f"📨 *НОВОЕ СООБЩЕНИЕ ОТ ПОЛЬЗОВАТЕЛЯ*\n\n"
+        f"👤 *Имя:* {escape_markdown(user_name)}\n"
+        f"🆔 *ID:* `{user_id}`\n"
+        f"📝 *Username:* @{username if username != 'без username' else 'отсутствует'}\n"
+        f"📅 *Время:* {update.message.date.strftime('%d.%m.%Y %H:%M:%S')}\n\n"
+        f"💬 *Сообщение:*\n```\n{escape_markdown(message_text)}\n```\n\n"
+    )
+
+    # Добавляем информацию о прикрепленных файлах
+    if update.message.photo:
+        manager_message += f"📎 *Прикреплено:* {len(update.message.photo)} фото\n"
+    if update.message.document:
+        doc_name = escape_markdown(
+            update.message.document.file_name) if update.message.document.file_name else "Неизвестный файл"
+        manager_message += f"📎 *Прикреплен документ:* {doc_name}\n"
+
+    try:
+        # Отправляем сообщение менеджеру по chat_id
+        await context.bot.send_message(
+            chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+            text=manager_message,
+            parse_mode='Markdown'
+        )
+
+        # Уведомляем пользователя
+        await update.message.reply_text(
+            "✅ Ваше сообщение отправлено менеджеру! Он свяжется с вами в ближайшее время.\n\n"
+            f"Также вы можете написать напрямую: @{MANAGER_NAME}"
+        )
+
+        logger.info(f"Сообщение от пользователя {user_id} ({user_name}) перенаправлено менеджеру")
+
+    except Exception as e:
+        logger.error(f"Ошибка при отправке сообщения менеджеру: {e}")
+
+        # Детализируем ошибку для отладки
+        error_details = str(e)
+        logger.error(f"Детали ошибки: {error_details}")
+
+        # Сохраняем информацию о попытке отправки
+        logger.error(
+            f"Пользователь: {user_name} (ID: {user_id}), Время: {update.message.date}, Сообщение: {message_text[:100]}...")
+
+        # Если не удалось отправить менеджеру, просим пользователя написать напрямую
+        await update.message.reply_text(
+            f"❌ К сожалению, не удалось отправить сообщение автоматически.\n\n"
+            f"Пожалуйста, напишите менеджеру напрямую: @{MANAGER_NAME}\n"
+            f"Ошибка: {error_details[:100]}..." if len(error_details) > 100 else f"Ошибка: {error_details}"
+        )
+
+
+async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Перенаправляет медиафайлы менеджеру"""
+    user_id = update.effective_user.id
+    user_name = update.effective_user.full_name or "Неизвестный пользователь"
+    username = update.effective_user.username or "без username"
+
+    # Пропускаем администраторов
+    if check_admin(user_id):
+        return
+
+    # Создаем текстовое сообщение для менеджера
+    manager_message = (
+        f"📨 *НОВОЕ МЕДИАСООБЩЕНИЕ ОТ ПОЛЬЗОВАТЕЛЯ*\n\n"
+        f"👤 *Имя:* {escape_markdown(user_name)}\n"
+        f"🆔 *ID:* `{user_id}`\n"
+        f"📝 *Username:* @{username if username != 'без username' else 'отсутствует'}\n"
+        f"📅 *Время:* {update.message.date.strftime('%d.%m.%Y %H:%M:%S')}\n\n"
+    )
+
+    if update.message.caption:
+        manager_message += f"📝 *Подпись:* {escape_markdown(update.message.caption)}\n\n"
+
+    try:
+        # Сначала отправляем текстовое сообщение менеджеру
+        await context.bot.send_message(
+            chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+            text=manager_message,
+            parse_mode='Markdown'
+        )
+
+        # Затем пересылаем само медиа
+        if update.message.photo:
+            # Отправляем фото
+            await context.bot.send_photo(
+                chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+                photo=update.message.photo[-1].file_id,
+                caption=f"Фото от @{username if username != 'без username' else 'пользователя'}"
+            )
+        elif update.message.document:
+            # Отправляем документ
+            await context.bot.send_document(
+                chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+                document=update.message.document.file_id,
+                caption=f"Документ от @{username if username != 'без username' else 'пользователя'}"
+            )
+
+        # Уведомляем пользователя
+        await update.message.reply_text(
+            "✅ Ваши файлы отправлены менеджеру! Он свяжется с вами в ближайшее время.\n\n"
+            f"Также вы можете написать напрямую: @{MANAGER_NAME}"
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка при отправке медиа менеджеру: {e}")
+        logger.error(f"Детали ошибки: {str(e)}")
+
+        await update.message.reply_text(
+            f"❌ К сожалению, не удалось отправить файлы автоматически.\n\n"
+            f"Пожалуйста, напишите менеджеру напрямую: @{MANAGER_NAME}"
         )
 
 
@@ -369,7 +523,8 @@ def main():
         states={
             SELECT_METAL: [
                 MessageHandler(
-                    filters.Regex("^(💰 Цена золота с НДС|💰 Цена золота без НДС|💰 Цена серебра с НДС|💰 Цена серебра без НДС|❌ Отмена)$"),
+                    filters.Regex(
+                        "^(💰 Цена золота с НДС|💰 Цена золота без НДС|💰 Цена серебра с НДС|💰 Цена серебра без НДС|❌ Отмена)$"),
                     admin_select_metal
                 )
             ],
@@ -402,6 +557,22 @@ def main():
 
     # Обработчик для возврата в меню админа
     application.add_handler(CommandHandler("menu", admin_menu))
+
+    # ОБРАБОТЧИК ДЛЯ ПЕРЕНАПРАВЛЕНИЯ СООБЩЕНИЙ МЕНЕДЖЕРУ
+    # Обработчик текстовых сообщений (исключая команды и кнопки)
+    application.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND &
+        ~filters.Regex("^💰 Поменять цену$") &
+        ~filters.Regex("^📢 Сделать рассылку$") &
+        ~filters.Regex("^💰 Узнать актуальную цену$"),
+        forward_to_manager
+    ))
+
+    # Обработчик медиафайлов (фото, документы)
+    application.add_handler(MessageHandler(
+        filters.PHOTO | filters.Document.ALL,
+        forward_media_to_manager
+    ))
 
     # Запускаем бота
     print("Бот запущен...")

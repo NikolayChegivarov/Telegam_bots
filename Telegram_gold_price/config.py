@@ -16,7 +16,8 @@ ADMIN_IDS = [int(id.strip()) for id in os.getenv("ADMIN_IDS", "").split(",") if 
 DATA_FILE = os.getenv("DATA_FILE", "bot_data.json")
 
 # Имя менеджера (username без @)
-MANAGER_NAME = os.getenv("MANAGER_NAME", "dragmet999")
+MANAGER_NAME = os.getenv("MANAGER_NAME", "GUSAROV_NIK")
+MANAGER_CHAT_ID = os.getenv("MANAGER_CHAT_ID")
 
 # Дополнительные переменные (если нужны)
 # LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
