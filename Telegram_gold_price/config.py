@@ -17,7 +17,7 @@ DATA_FILE = os.getenv("DATA_FILE", "bot_data.json")
 
 # Имя менеджера (username без @)
 MANAGER_NAME = os.getenv("MANAGER_NAME", "GUSAROV_NIK")
-MANAGER_CHAT_ID = os.getenv("MANAGER_CHAT_ID")
+MANAGER_CHAT_ID = int(os.getenv("MANAGER_CHAT_ID"))
 
 # Дополнительные переменные (если нужны)
 # LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
