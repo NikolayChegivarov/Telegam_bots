@@ -1,13 +1,14 @@
 # bot.py
 import logging
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
     ConversationHandler,
     ContextTypes,
-    filters
+    filters,
+    CallbackQueryHandler
 )
 from telegram.constants import ParseMode
 from config import BOT_TOKEN, ADMIN_IDS, MANAGER_NAME, MANAGER_CHAT_ID
@@ -41,7 +42,7 @@ def check_admin(user_id):
 
 
 def format_prices():
-    """Форматирует цены для сообщения"""
+    """Форматирует цены для сообщение"""
     gold_price_NDS = db.get_gold_price_NDS()
     gold_price_no_NDS = db.get_gold_price_no_NDS()
     silver_price_NDS = db.get_silver_price_NDS()
@@ -161,12 +162,21 @@ async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE)
             update.message.document.file_name) if update.message.document.file_name else "Неизвестный файл"
         manager_message += f"📎 *Прикреплен документ:* {doc_name}\n"
 
+    # Создаем инлайн-кнопку для быстрого перехода к диалогу с пользователем
+    reply_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            f"💬 Написать {user_name[:20]} ",  # Обрезаем имя если слишком длинное
+            url=f"tg://user?id={user_id}"  # Ссылка для открытия диалога с пользователем
+        )]
+    ])
+
     try:
         # Отправляем сообщение менеджеру по chat_id
         await context.bot.send_message(
             chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
             text=manager_message,
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=reply_keyboard
         )
 
         # Уведомляем пользователя
@@ -218,12 +228,21 @@ async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT
     if update.message.caption:
         manager_message += f"📝 *Подпись:* {escape_markdown(update.message.caption)}\n\n"
 
+    # Создаем инлайн-кнопку для быстрого перехода к диалогу с пользователем
+    reply_keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton(
+            f"💬 Написать {user_name[:20]} напрямую",  # Обрезаем имя если слишком длинное
+            url=f"tg://user?id={user_id}"  # Ссылка для открытия диалога с пользователем
+        )]
+    ])
+
     try:
         # Сначала отправляем текстовое сообщение менеджеру
         await context.bot.send_message(
             chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
             text=manager_message,
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            reply_markup=reply_keyboard
         )
 
         # Затем пересылаем само медиа
@@ -557,13 +576,16 @@ def main():
     # Обработчик для возврата в меню админа
     application.add_handler(CommandHandler("menu", admin_menu))
 
+    # Убрали обработчики инлайн-кнопок, так как теперь только одна кнопка-ссылка
+
     # ОБРАБОТЧИК ДЛЯ ПЕРЕНАПРАВЛЕНИЯ СООБЩЕНИЙ МЕНЕДЖЕРУ
     # Обработчик текстовых сообщений (исключая команды и кнопки)
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND &
         ~filters.Regex("^💰 Поменять цену$") &
         ~filters.Regex("^📢 Сделать рассылку$") &
-        ~filters.Regex("^💰 Узнать актуальную цену$"),
+        ~filters.Regex("^💰 Узнать актуальную цену$") &
+        ~filters.Regex("^❌ Отмена$"),
         forward_to_manager
     ))
 
