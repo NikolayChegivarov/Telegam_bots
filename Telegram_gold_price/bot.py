@@ -91,8 +91,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Меню для администратора
         keyboard = [
             [KeyboardButton("💰 Поменять цену")],
-            [KeyboardButton("📢 Сделать рассылку")],
-            [KeyboardButton("👥 Управление пользователями")]
+            [KeyboardButton("📢 Сделать рассылку")]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         await update.message.reply_text(
@@ -166,15 +165,15 @@ async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Создаем инлайн-кнопку для быстрого перехода к диалогу с пользователем
     reply_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(
-            f"💬 Написать {user_name[:20]} ",
-            url=f"tg://user?id={user_id}"
+            f"💬 Написать {user_name[:20]} ",  # Обрезаем имя если слишком длинное
+            url=f"tg://user?id={user_id}"  # Ссылка для открытия диалога с пользователем
         )]
     ])
 
     try:
         # Отправляем сообщение менеджеру по chat_id
         await context.bot.send_message(
-            chat_id=MANAGER_CHAT_ID,
+            chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
             text=manager_message,
             parse_mode='Markdown',
             reply_markup=reply_keyboard
@@ -191,12 +190,15 @@ async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error(f"Ошибка при отправке сообщения менеджеру: {e}")
 
+        # Детализируем ошибку для отладки
         error_details = str(e)
         logger.error(f"Детали ошибки: {error_details}")
 
+        # Сохраняем информацию о попытке отправки
         logger.error(
             f"Пользователь: {user_name} (ID: {user_id}), Время: {update.message.date}, Сообщение: {message_text[:100]}...")
 
+        # Если не удалось отправить менеджеру, просим пользователя написать напрямую
         await update.message.reply_text(
             f"❌ К сожалению, не удалось отправить сообщение автоматически.\n\n"
             f"Пожалуйста, напишите менеджеру напрямую: @{MANAGER_NAME}\n"
@@ -229,15 +231,15 @@ async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT
     # Создаем инлайн-кнопку для быстрого перехода к диалогу с пользователем
     reply_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(
-            f"💬 Написать {user_name[:20]} напрямую",
-            url=f"tg://user?id={user_id}"
+            f"💬 Написать {user_name[:20]} напрямую",  # Обрезаем имя если слишком длинное
+            url=f"tg://user?id={user_id}"  # Ссылка для открытия диалога с пользователем
         )]
     ])
 
     try:
         # Сначала отправляем текстовое сообщение менеджеру
         await context.bot.send_message(
-            chat_id=MANAGER_CHAT_ID,
+            chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
             text=manager_message,
             parse_mode='Markdown',
             reply_markup=reply_keyboard
@@ -245,14 +247,16 @@ async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT
 
         # Затем пересылаем само медиа
         if update.message.photo:
+            # Отправляем фото
             await context.bot.send_photo(
-                chat_id=MANAGER_CHAT_ID,
+                chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
                 photo=update.message.photo[-1].file_id,
                 caption=f"Фото от @{username if username != 'без username' else 'пользователя'}"
             )
         elif update.message.document:
+            # Отправляем документ
             await context.bot.send_document(
-                chat_id=MANAGER_CHAT_ID,
+                chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
                 document=update.message.document.file_id,
                 caption=f"Документ от @{username if username != 'без username' else 'пользователя'}"
             )
@@ -283,87 +287,10 @@ async def admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [KeyboardButton("💰 Поменять цену")],
-        [KeyboardButton("📢 Сделать рассылку")],
-        [KeyboardButton("👥 Управление пользователями")]
+        [KeyboardButton("📢 Сделать рассылку")]
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("Выберите действие:", reply_markup=reply_markup)
-
-
-async def admin_manage_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Управление пользователями - показать список и удалять"""
-    if not check_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ У вас нет прав администратора!")
-        return
-
-    users = db.get_all_users()
-
-    if not users:
-        await update.message.reply_text("📭 Список пользователей пуст.")
-        return
-
-    # Формируем список пользователей
-    user_list = "📋 *Список пользователей:*\n\n"
-    for i, user_id in enumerate(users, 1):
-        user_list += f"{i}. ID: `{user_id}`\n"
-
-    user_list += "\n💡 *Чтобы удалить пользователя:*\n"
-    user_list += "Отправьте команду:\n`/remove_user ID`\n\n"
-    user_list += "📝 *Пример:*\n`/remove_user 123456789`"
-
-    await update.message.reply_text(user_list, parse_mode='Markdown')
-
-
-async def admin_remove_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Удаление пользователя по ID (только для админов)"""
-    if not check_admin(update.effective_user.id):
-        await update.message.reply_text("⛔ У вас нет прав администратора!")
-        return
-
-    # Проверяем, передан ли ID пользователя
-    if not context.args:
-        await update.message.reply_text(
-            "❌ *Не указан ID пользователя*\n\n"
-            "Используйте: `/remove_user 123456789`\n"
-            "Чтобы посмотреть список пользователей, нажмите '👥 Управление пользователями'",
-            parse_mode='Markdown'
-        )
-        return
-
-    # Удаляем пользователя
-    try:
-        user_id = int(context.args[0])
-
-        # Проверяем, не пытается ли админ удалить сам себя
-        if user_id == update.effective_user.id:
-            await update.message.reply_text(
-                "⚠️ Вы не можете удалить сами себя из списка рассылки!",
-                parse_mode='Markdown'
-            )
-            return
-
-        if db.remove_user(user_id):
-            await update.message.reply_text(
-                f"✅ *Пользователь успешно удален!*\n\n"
-                f"🆔 ID: `{user_id}`\n"
-                f"📊 Осталось пользователей: {len(db.get_all_users())}",
-                parse_mode='Markdown'
-            )
-            logger.info(f"Администратор {update.effective_user.id} удалил пользователя {user_id}")
-        else:
-            await update.message.reply_text(
-                f"❌ *Пользователь не найден*\n\n"
-                f"🆔 ID: `{user_id}` не найден в базе данных.\n\n"
-                f"Используйте '👥 Управление пользователями' чтобы посмотреть список.",
-                parse_mode='Markdown'
-            )
-    except ValueError:
-        await update.message.reply_text(
-            "❌ *Неверный формат ID*\n\n"
-            "ID должен состоять только из цифр.\n"
-            "Пример: `/remove_user 123456789`",
-            parse_mode='Markdown'
-        )
 
 
 async def admin_change_price_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -381,7 +308,7 @@ async def admin_change_price_start(update: Update, context: ContextTypes.DEFAULT
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    # Получаем текущие цены
+    # Получаем текущие цены (используем GET методы, а не SET!)
     gold_price_nds = db.get_gold_price_NDS()
     gold_price_no_nds = db.get_gold_price_no_NDS()
     silver_price_nds = db.get_silver_price_NDS()
@@ -640,11 +567,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(conv_handler)
 
-    # Обработчики для администратора
+    # Обработчик рассылки
     application.add_handler(MessageHandler(filters.Regex("^📢 Сделать рассылку$"), admin_broadcast))
-    application.add_handler(MessageHandler(filters.Regex("^👥 Управление пользователями$"), admin_manage_users))
-    application.add_handler(CommandHandler("remove_user", admin_remove_user))
-    application.add_handler(CommandHandler("users", admin_manage_users))  # Альтернативная команда
 
     # Обработчик для пользователей
     application.add_handler(MessageHandler(filters.Regex("^💰 Узнать актуальную цену$"), user_get_price))
@@ -652,13 +576,14 @@ def main():
     # Обработчик для возврата в меню админа
     application.add_handler(CommandHandler("menu", admin_menu))
 
+    # Убрали обработчики инлайн-кнопок, так как теперь только одна кнопка-ссылка
+
     # ОБРАБОТЧИК ДЛЯ ПЕРЕНАПРАВЛЕНИЯ СООБЩЕНИЙ МЕНЕДЖЕРУ
     # Обработчик текстовых сообщений (исключая команды и кнопки)
     application.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND &
         ~filters.Regex("^💰 Поменять цену$") &
         ~filters.Regex("^📢 Сделать рассылку$") &
-        ~filters.Regex("^👥 Управление пользователями$") &
         ~filters.Regex("^💰 Узнать актуальную цену$") &
         ~filters.Regex("^❌ Отмена$"),
         forward_to_manager
