@@ -30,6 +30,10 @@ logger = logging.getLogger(__name__)
     SET_SILVER_PRICE_NO_NDS
 ) = range(5)
 
+# ============ ЧЕРНЫЙ СПИСОК ПОЛЬЗОВАТЕЛЕЙ ============
+# Света и Вова идут на хуй
+BLACKLIST = [5043662171, 66472916]  # ID заблокированных пользователей
+
 # Инициализация базы данных
 db = Database()
 
@@ -39,6 +43,11 @@ db = Database()
 def check_admin(user_id):
     """Проверка, является ли пользователь администратором"""
     return user_id in ADMIN_IDS
+
+
+def is_blocked(user_id):
+    """Проверка, находится ли пользователь в черном списке"""
+    return user_id in BLACKLIST
 
 
 def format_prices():
@@ -82,6 +91,33 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_name = update.effective_user.full_name or "Неизвестный пользователь"
     username = update.effective_user.username or "без username"
+
+    # ============ ПРОВЕРКА ЧЕРНОГО СПИСКА ============
+    if is_blocked(user_id):
+        # Отправляем сообщение пользователю
+        await update.message.reply_text(
+            "❌ *Бот неисправен* ❌\n\n"
+            "Технические работы. Пожалуйста, обратитесь позже.",
+            parse_mode='Markdown'
+        )
+
+        # Отправляем уведомление администраторам
+        for admin_id in ADMIN_IDS:
+            try:
+                await context.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"🚫 *ЗАБЛОКИРОВАННЫЙ ПОЛЬЗОВАТЕЛЬ ПЫТАЕТСЯ ЗАЙТИ*\n\n"
+                         f"👤 Имя: {user_name}\n"
+                         f"🆔 ID: `{user_id}`\n"
+                         f"📝 Username: @{username if username != 'без username' else 'отсутствует'}\n"
+                         f"💬 Статус: Света и Вова идут на хуй",
+                    parse_mode='Markdown'
+                )
+            except Exception as e:
+                logger.error(f"Не удалось отправить уведомление админу {admin_id}: {e}")
+
+        logger.warning(f"Заблокированный пользователь {user_id} ({user_name}) попытался запустить бота")
+        return  # Выходим, не добавляем пользователя
 
     # Добавляем пользователя в базу
     db.add_user(user_id)
@@ -136,6 +172,14 @@ async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if check_admin(user_id):
         return
 
+    # Пропускаем заблокированных пользователей
+    if is_blocked(user_id):
+        await update.message.reply_text(
+            "❌ Бот неисправен. Сообщение не отправлено.",
+            parse_mode='Markdown'
+        )
+        return
+
     # Получаем текст сообщения
     if update.message.text:
         message_text = update.message.text
@@ -165,15 +209,15 @@ async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE)
     # Создаем инлайн-кнопку для быстрого перехода к диалогу с пользователем
     reply_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(
-            f"💬 Написать {user_name[:20]} ",  # Обрезаем имя если слишком длинное
-            url=f"tg://user?id={user_id}"  # Ссылка для открытия диалога с пользователем
+            f"💬 Написать {user_name[:20]} ",
+            url=f"tg://user?id={user_id}"
         )]
     ])
 
     try:
         # Отправляем сообщение менеджеру по chat_id
         await context.bot.send_message(
-            chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+            chat_id=MANAGER_CHAT_ID,
             text=manager_message,
             parse_mode='Markdown',
             reply_markup=reply_keyboard
@@ -190,15 +234,12 @@ async def forward_to_manager(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error(f"Ошибка при отправке сообщения менеджеру: {e}")
 
-        # Детализируем ошибку для отладки
         error_details = str(e)
         logger.error(f"Детали ошибки: {error_details}")
 
-        # Сохраняем информацию о попытке отправки
         logger.error(
             f"Пользователь: {user_name} (ID: {user_id}), Время: {update.message.date}, Сообщение: {message_text[:100]}...")
 
-        # Если не удалось отправить менеджеру, просим пользователя написать напрямую
         await update.message.reply_text(
             f"❌ К сожалению, не удалось отправить сообщение автоматически.\n\n"
             f"Пожалуйста, напишите менеджеру напрямую: @{MANAGER_NAME}\n"
@@ -216,6 +257,14 @@ async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT
     if check_admin(user_id):
         return
 
+    # Пропускаем заблокированных пользователей
+    if is_blocked(user_id):
+        await update.message.reply_text(
+            "❌ Бот неисправен. Файлы не отправлены.",
+            parse_mode='Markdown'
+        )
+        return
+
     # Создаем текстовое сообщение для менеджера
     manager_message = (
         f"📨 *НОВОЕ МЕДИАСООБЩЕНИЕ ОТ ПОЛЬЗОВАТЕЛЯ*\n\n"
@@ -231,15 +280,15 @@ async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT
     # Создаем инлайн-кнопку для быстрого перехода к диалогу с пользователем
     reply_keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton(
-            f"💬 Написать {user_name[:20]} напрямую",  # Обрезаем имя если слишком длинное
-            url=f"tg://user?id={user_id}"  # Ссылка для открытия диалога с пользователем
+            f"💬 Написать {user_name[:20]} напрямую",
+            url=f"tg://user?id={user_id}"
         )]
     ])
 
     try:
         # Сначала отправляем текстовое сообщение менеджеру
         await context.bot.send_message(
-            chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+            chat_id=MANAGER_CHAT_ID,
             text=manager_message,
             parse_mode='Markdown',
             reply_markup=reply_keyboard
@@ -247,16 +296,14 @@ async def forward_media_to_manager(update: Update, context: ContextTypes.DEFAULT
 
         # Затем пересылаем само медиа
         if update.message.photo:
-            # Отправляем фото
             await context.bot.send_photo(
-                chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+                chat_id=MANAGER_CHAT_ID,
                 photo=update.message.photo[-1].file_id,
                 caption=f"Фото от @{username if username != 'без username' else 'пользователя'}"
             )
         elif update.message.document:
-            # Отправляем документ
             await context.bot.send_document(
-                chat_id=MANAGER_CHAT_ID,  # Используем числовой chat_id
+                chat_id=MANAGER_CHAT_ID,
                 document=update.message.document.file_id,
                 caption=f"Документ от @{username if username != 'без username' else 'пользователя'}"
             )
@@ -509,6 +556,14 @@ async def admin_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def user_get_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Кнопка 'Узнать актуальную цену' для пользователя"""
+    # Проверяем черный список
+    if is_blocked(update.effective_user.id):
+        await update.message.reply_text(
+            "❌ Бот неисправен",
+            parse_mode='Markdown'
+        )
+        return
+
     message = format_prices()
     await update.message.reply_text(
         message,
@@ -575,8 +630,6 @@ def main():
 
     # Обработчик для возврата в меню админа
     application.add_handler(CommandHandler("menu", admin_menu))
-
-    # Убрали обработчики инлайн-кнопок, так как теперь только одна кнопка-ссылка
 
     # ОБРАБОТЧИК ДЛЯ ПЕРЕНАПРАВЛЕНИЯ СООБЩЕНИЙ МЕНЕДЖЕРУ
     # Обработчик текстовых сообщений (исключая команды и кнопки)
